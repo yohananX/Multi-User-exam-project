@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-bg: #161618;
+  --main-bg: #111113;
+  --surface: #1a1a1d;
+  --surface-hover: #222225;
+  --border: #2a2a2e;
+  --accent: #5B4FCF;
+  --accent-hover: #6B5FD9;
+  --accent-muted: rgba(91, 79, 207, 0.15);
+  --text-primary: #f1f1f1;
+  --text-secondary: #a0a0a8;
+  --text-tertiary: #6b6b73;
+  --amber: #f59e0b;
+  --purple: #8b5cf6;
+  --green: #10b981;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--main-bg);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer;
+  color: var(--text-secondary);
+}
+.sidebar-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.sidebar-link.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.sidebar-group-header {
+  @apply flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider cursor-pointer rounded-lg transition-all;
+  color: var(--text-tertiary);
+}
+.sidebar-group-header:hover {
+  color: var(--text-secondary);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.card-hover:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.status-pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--amber);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-in_review {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--purple);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.status-completed {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--green);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  @apply font-semibold rounded-lg transition-all;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.input-dark {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  @apply rounded-lg px-3 py-2 text-sm outline-none transition-all;
+}
+.input-dark:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+select.input-dark {
+  @apply appearance-none;
+}
+
+.topbar {
+  border-bottom: 1px solid var(--border);
+  background: var(--sidebar-bg);
+}
