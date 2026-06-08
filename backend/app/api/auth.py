@@ -21,7 +21,16 @@ def register(req: UserCreate):
     existing = select("users", filters={"username": f"eq.{req.username}"}, single=True)
     if existing:
         raise HTTPException(status_code=409, detail="Username already taken")
-    data = req.model_dump()
+    data = req.model_dump(exclude={"school_name"})
+    if req.school_name:
+        existing_school = select("schools", filters={"name": f"eq.{req.school_name}"}, single=True)
+        if existing_school:
+            raise HTTPException(status_code=409, detail="School name already taken")
+        school = insert("schools", {"name": req.school_name, "address": ""})
+        if isinstance(school, list):
+            school = school[0]
+        data["school_id"] = school["id"]
+        data["role"] = "school_admin"
     data["password_hash"] = hash_password(data.pop("password"))
     user = insert("users", data)
     if isinstance(user, list):

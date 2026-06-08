@@ -5,6 +5,8 @@ export const authApi = {
   login: (username: string, password: string) =>
     api.post<{ access_token: string; token_type: string; user: User }>('/auth/login', { username, password }),
   me: () => api.get<User>('/auth/me'),
+  register: (data: { username: string; email: string; password: string; full_name: string; school_name?: string }) =>
+    api.post<User>('/auth/register', data),
 };
 
 export const usersApi = {

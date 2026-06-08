@@ -10,6 +10,7 @@ class UserCreate(BaseModel):
     full_name: str
     role: str = "teacher"
     school_id: Optional[int] = None
+    school_name: Optional[str] = None  # creates a new school if provided
 
 
 class UserOut(BaseModel):

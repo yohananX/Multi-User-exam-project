@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { School, LogIn } from 'lucide-react';
 
@@ -54,12 +54,10 @@ export default function LoginPage() {
             <LogIn className="w-4 h-4" /> Sign In
           </button>
 
-          <div className="pt-3 border-t border-border">
-            <p className="text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>
-              Demo: <strong style={{ color: 'var(--text-secondary)' }}>admin</strong> / <strong style={{ color: 'var(--text-secondary)' }}>teacher1</strong> / <strong style={{ color: 'var(--text-secondary)' }}>teacher2</strong><br />
-              Pass: <strong style={{ color: 'var(--text-secondary)' }}>admin123</strong> / <strong style={{ color: 'var(--text-secondary)' }}>teacher123</strong>
-            </p>
-          </div>
+          <p className="text-xs text-center pt-2" style={{ color: 'var(--text-tertiary)' }}>
+            Don't have an account?{' '}
+            <Link to="/register" className="font-medium" style={{ color: 'var(--accent)' }}>Register</Link>
+          </p>
         </form>
       </div>
     </div>
