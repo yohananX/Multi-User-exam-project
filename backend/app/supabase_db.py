@@ -106,3 +106,80 @@ def count(table: str, filters: dict | None = None) -> int:
 def raw(sql_or_func: str, params: dict | None = None):
     """Call a Supabase RPC function."""
     return _request("POST", _rest(f"rpc/{sql_or_func}"), json=params or {})
+
+
+# ─── Supabase Storage ───────────────────────────────────────────────
+
+STORAGE_BUCKET = "exam-files"
+STORAGE_URL = f"{SUPABASE_URL}/storage/v1"
+
+_storage_headers = {
+    "apikey": SERVICE_KEY,
+    "Authorization": f"Bearer {SERVICE_KEY}",
+}
+
+
+def _storage(path: str) -> str:
+    return urljoin(f"{STORAGE_URL}/", path.lstrip("/"))
+
+
+def storage_ensure_bucket():
+    """Create the storage bucket if it doesn't exist."""
+    with httpx.Client(timeout=15.0) as client:
+        r = client.get(_storage("bucket"), headers=_storage_headers)
+        r.raise_for_status()
+        if any(b["name"] == STORAGE_BUCKET for b in r.json()):
+            return
+        r = client.post(_storage("bucket"), headers={**_storage_headers, "Content-Type": "application/json"}, json={"name": STORAGE_BUCKET, "public": False})
+        r.raise_for_status()
+        # Make bucket public so signed URLs work
+        client.put(_storage(f"bucket/{STORAGE_BUCKET}"), headers={**_storage_headers, "Content-Type": "application/json"}, json={"public": True})
+
+
+def storage_upload(storage_path: str, data: bytes, content_type: str = "application/octet-stream"):
+    """Upload a file to Supabase Storage. Returns the path."""
+    _rate_limit()
+    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}")
+    with httpx.Client(timeout=60.0) as client:
+        r = client.post(url, headers={**_storage_headers, "Content-Type": content_type}, content=data)
+        r.raise_for_status()
+        return storage_path
+
+
+def storage_download(storage_path: str) -> bytes:
+    """Download a file from Supabase Storage."""
+    _rate_limit()
+    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}")
+    with httpx.Client(timeout=60.0) as client:
+        r = client.get(url, headers=_storage_headers)
+        r.raise_for_status()
+        return r.content
+
+
+def storage_delete(storage_path: str):
+    """Delete a file from Supabase Storage."""
+    _rate_limit()
+    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}")
+    with httpx.Client(timeout=15.0) as client:
+        r = client.delete(url, headers=_storage_headers)
+        r.raise_for_status()
+
+
+def storage_signed_url(storage_path: str, expires_in: int = 3600) -> str:
+    """Get a signed URL for temporary access."""
+    _rate_limit()
+    url = _storage(f"object/sign/{STORAGE_BUCKET}/{storage_path.lstrip('/')}")
+    with httpx.Client(timeout=15.0) as client:
+        r = client.post(url, headers={**_storage_headers, "Content-Type": "application/json"}, json={"expiresIn": expires_in})
+        r.raise_for_status()
+        return f"{STORAGE_URL}{r.json()['signedURL']}" if r.json().get("signedURL", "").startswith("/") else r.json()["signedURL"]
+
+
+def storage_list(prefix: str = "") -> list[dict]:
+    """List files under a prefix."""
+    _rate_limit()
+    url = _storage(f"object/list/{STORAGE_BUCKET}")
+    with httpx.Client(timeout=15.0) as client:
+        r = client.post(url, headers={**_storage_headers, "Content-Type": "application/json"}, json={"prefix": prefix.lstrip("/"), "sortBy": {"column": "name", "order": "asc"}})
+        r.raise_for_status()
+        return r.json()

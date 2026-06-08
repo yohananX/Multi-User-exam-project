@@ -73,17 +73,17 @@ export const imagesApi = {
   convert: (id: number) => api.post(`/images/${id}/convert`),
   convertAll: (subjectId: number) => api.post(`/images/by-subject/${subjectId}/convert-all`),
   exportPdf: (subjectId: number) => api.post(`/images/by-subject/${subjectId}/export-pdf`),
-  downloadPdfUrl: (subjectId: number) => `/api/images/by-subject/${subjectId}/download-pdf`,
+  downloadPdf: (subjectId: number) => api.get<{ url: string; filename: string }>(`/images/by-subject/${subjectId}/download-pdf`),
   ocr: (subjectId: number, apiKey?: string, instructions?: string) =>
     api.post(`/images/by-subject/${subjectId}/ocr`, null, { params: { api_key: apiKey || '', instructions: instructions || '' } }),
   getOcrText: (subjectId: number) => api.get<{ ocr_text: string }>(`/images/by-subject/${subjectId}/ocr-text`),
   updateOcrText: (subjectId: number, ocrText: string) =>
     api.put(`/images/by-subject/${subjectId}/ocr-text`, { ocr_text: ocrText }),
   buildDocx: (subjectId: number) => api.post(`/images/by-subject/${subjectId}/build-docx`),
-  downloadDocxUrl: (subjectId: number) => `/api/images/by-subject/${subjectId}/download-docx`,
+  downloadDocx: (subjectId: number) => api.get<{ url: string; filename: string }>(`/images/by-subject/${subjectId}/download-docx`),
   impose: (subjectId: number, params: { cols?: number; rows?: number; margin_mm?: number; gap_mm?: number; page_margin_cm?: number; split_mode?: string; header_pg2?: boolean; manual_scale_a?: number; manual_scale_b?: number }) =>
     api.post(`/images/by-subject/${subjectId}/impose`, null, { params }),
-  downloadImposedUrl: (subjectId: number) => `/api/images/by-subject/${subjectId}/download-imposed`,
+  downloadImposed: (subjectId: number) => api.get<{ url: string; filename: string }>(`/images/by-subject/${subjectId}/download-imposed`),
   delete: (id: number) => api.delete(`/images/${id}`),
 };
 

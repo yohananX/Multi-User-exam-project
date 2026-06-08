@@ -152,6 +152,8 @@ def seed_data():
 async def lifespan(app: FastAPI):
     os.makedirs(settings.upload_dir, exist_ok=True)
     os.makedirs(settings.output_dir, exist_ok=True)
+    from app.supabase_db import storage_ensure_bucket
+    storage_ensure_bucket()
     seed_data()
     yield
 

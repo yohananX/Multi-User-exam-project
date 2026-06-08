@@ -92,7 +92,8 @@ export default function AdminSubjectView() {
     setExporting(true);
     try {
       await imagesApi.exportPdf(Number(subjectId));
-      downloadFile(imagesApi.downloadPdfUrl(Number(subjectId)));
+      const { data } = await imagesApi.downloadPdf(Number(subjectId));
+      downloadFile(data.url, data.filename);
     } catch (e) { console.error(e);
     } finally { setExporting(false); }
   };
@@ -171,7 +172,8 @@ export default function AdminSubjectView() {
       setImposedReady(true);
       setImposePreviews(imposeRes.data.previews || []);
       setImposePreviewIdx(0);
-      downloadFile(imagesApi.downloadImposedUrl(Number(subjectId)));
+      const { data: dl } = await imagesApi.downloadImposed(Number(subjectId));
+      downloadFile(dl.url, dl.filename);
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Process All failed at some step');
     } finally { setProcessingAll(false); }
@@ -331,7 +333,7 @@ export default function AdminSubjectView() {
                     {buildingDocx ? 'Building...' : 'Build DOCX'}
                   </button>
                   {docxBuilt && (
-                    <button onClick={() => downloadFile(imagesApi.downloadDocxUrl(Number(subjectId)))}
+                    <button onClick={async () => { const { data } = await imagesApi.downloadDocx(Number(subjectId)); downloadFile(data.url, data.filename); }}
                       className="btn-primary flex items-center gap-2 py-2 px-4 text-sm"
                       style={{ background: '#10b981' }}>
                       <Download className="w-4 h-4" /> Download DOCX
@@ -413,7 +415,7 @@ export default function AdminSubjectView() {
                     {imposing ? 'Generating...' : 'Generate Imposed PDF'}
                   </button>
                   {imposedReady && (
-                    <button onClick={() => downloadFile(imagesApi.downloadImposedUrl(Number(subjectId)))}
+                    <button onClick={async () => { const { data } = await imagesApi.downloadImposed(Number(subjectId)); downloadFile(data.url, data.filename); }}
                       className="btn-primary flex items-center gap-2 py-2 px-4 text-sm"
                       style={{ background: '#10b981' }}>
                       <Download className="w-4 h-4" /> Download Imposed PDF
