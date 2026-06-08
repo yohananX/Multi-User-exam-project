@@ -4,6 +4,7 @@ import shutil
 import tempfile
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import RedirectResponse
 from app.supabase_db import select, insert, update, delete
 from app.supabase_db import storage_upload, storage_download, storage_signed_url, storage_delete, storage_list
 from app.config import settings
@@ -639,6 +640,36 @@ def download_imposed(
     url = storage_signed_url(storage_path)
     filename = f"{cls_name} - {subj['name']} Exam (Imposed).pdf"
     return {"url": url, "filename": filename}
+
+
+# ─── View Images ────────────────────────────────────────────────────
+
+@router.get("/{image_id}/file")
+def view_image_file(
+    image_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    img = select("images", filters={"id": f"eq.{image_id}"}, single=True)
+    if not img:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if not img.get("file_path"):
+        raise HTTPException(status_code=404, detail="No file for this image")
+    url = storage_signed_url(img["file_path"])
+    return RedirectResponse(url=url)
+
+
+@router.get("/{image_id}/pdf")
+def view_image_pdf(
+    image_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    img = select("images", filters={"id": f"eq.{image_id}"}, single=True)
+    if not img:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if not img.get("pdf_path"):
+        raise HTTPException(status_code=404, detail="No PDF for this image. Convert it first.")
+    url = storage_signed_url(img["pdf_path"])
+    return RedirectResponse(url=url)
 
 
 # ─── Delete ─────────────────────────────────────────────────────────

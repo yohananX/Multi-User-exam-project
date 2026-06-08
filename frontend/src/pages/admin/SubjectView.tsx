@@ -250,10 +250,18 @@ export default function AdminSubjectView() {
       </div>
 
       <div className="space-y-2">
-        {images.map((img: any) => (
+          {images.map((img: any) => (
           <div key={img.id} className="card p-4 card-hover flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-muted)' }}>
-              <ImageIcon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+              style={{ background: 'var(--accent-muted)' }}>
+              {img.file_path ? (
+                <img src={`/api/images/${img.id}/file`} alt={img.title}
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => window.open(`/api/images/${img.id}/file`, '_blank')}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <ImageIcon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -271,6 +279,13 @@ export default function AdminSubjectView() {
               {statusLabels[img.status] || img.status}
             </div>
             <div className="flex items-center gap-1">
+              {img.file_path && (
+                <a href={`/api/images/${img.id}/file`} target="_blank" rel="noopener noreferrer"
+                  className="p-1.5 rounded-lg hover:bg-surface-hover" style={{ color: 'var(--text-tertiary)' }}
+                  title="View image">
+                  <Eye className="w-4 h-4" />
+                </a>
+              )}
               {img.status === 'pending' && (
                 <button onClick={() => handleConvert(img.id)} disabled={converting.has(img.id)}
                   className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 disabled:opacity-50">
