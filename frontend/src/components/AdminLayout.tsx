@@ -60,7 +60,7 @@ export default function AdminLayout() {
                     <span>{subj.name}</span>
                   </span>
                   <span className="ml-auto text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    {subj.total_images}
+                    {subj.status === 'completed' ? 'Done' : subj.status || 'Active'}
                   </span>
                 </Link>
               ))}

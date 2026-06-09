@@ -45,15 +45,10 @@ export default function AdminStructureView() {
                       {subj.name}
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                      {subj.total_images} image{subj.total_images !== 1 ? 's' : ''}
+                      {subj.status || 'Active'}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex gap-1.5">
-                      {subj.pending > 0 && <span className="status-pending text-xs px-2 py-0.5 rounded-full">{subj.pending} pending</span>}
-                      {subj.in_review > 0 && <span className="status-in_review text-xs px-2 py-0.5 rounded-full">{subj.in_review} in review</span>}
-                      {subj.completed > 0 && <span className="status-completed text-xs px-2 py-0.5 rounded-full">{subj.completed} done</span>}
-                    </div>
                     <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
                   </div>
                 </div>

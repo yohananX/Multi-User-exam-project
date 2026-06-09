@@ -13,10 +13,13 @@ export default function TeacherDashboard() {
 
   if (!data) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>;
 
+  const totalSubjects = data.subjects?.length || 0;
+  const completed = data.subjects?.filter((s: any) => s.status === 'completed').length || 0;
+  const pending = totalSubjects - completed;
   const stats = [
-    { label: 'Total Subjects', value: data.total_subjects, icon: BookOpen },
-    { label: 'Pending Uploads', value: data.subjects_with_pending, icon: AlertCircle },
-    { label: 'All Completed', value: data.subjects_all_completed, icon: CheckCircle },
+    { label: 'Total Subjects', value: totalSubjects, icon: BookOpen },
+    { label: 'Pending Uploads', value: pending, icon: AlertCircle },
+    { label: 'All Completed', value: completed, icon: CheckCircle },
   ];
 
   return (
@@ -68,12 +71,11 @@ export default function TeacherDashboard() {
                         {s.subject_name}
                       </p>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{s.total_images} images</span>
-                        {s.pending > 0 ? (
-                          <span className="status-pending text-xs px-2.5 py-1 rounded-full">{s.pending} pending</span>
-                        ) : s.completed > 0 ? (
+                        {s.status === 'completed' ? (
                           <span className="status-completed text-xs px-2.5 py-1 rounded-full">Completed</span>
-                        ) : null}
+                        ) : (
+                          <span className="status-pending text-xs px-2.5 py-1 rounded-full">In Progress</span>
+                        )}
                         <Upload className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                       </div>
                     </div>

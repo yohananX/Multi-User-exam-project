@@ -17,7 +17,7 @@ export default function RegisterPage() {
       await authApi.register({ ...form, school_name: form.school_name || undefined });
       navigate('/login');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.response?.data?.message || 'Registration failed');
+      setError(err?.message || 'Registration failed');
     } finally {
       setLoading(false);
     }

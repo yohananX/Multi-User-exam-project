@@ -76,11 +76,7 @@ export default function AdminTeachers() {
   };
 
   const extractError = (err: any): string => {
-    const detail = err?.response?.data?.detail;
-    if (!detail) return 'Failed';
-    if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail)) return detail.map((d: any) => d.msg || String(d)).join('; ');
-    return String(detail);
+    return err?.message || 'Failed';
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -137,7 +133,7 @@ export default function AdminTeachers() {
               <div>
                 <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{t.full_name}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  @{t.username} · {t.total_assignments} subjects · {t.total_images} images
+                  @{t.username} · {t.email}
                 </p>
               </div>
               <button onClick={e => { e.stopPropagation(); handleDeleteTeacher(t.id); }}

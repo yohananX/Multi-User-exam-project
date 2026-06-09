@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Upload, Image as ImageIcon, Loader2, Clock, CheckCircle, Eye, Check } from 'lucide-react';
 import { imagesApi, subjectsApi, classesApi } from '../../api/endpoints';
+import { supabase, BUCKET_UPLOADS } from '../../lib/supabase';
 
 const statusStyles: Record<string, string> = {
   pending: 'status-pending',
@@ -27,6 +28,7 @@ export default function TeacherSubjectView() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [successCount, setSuccessCount] = useState(0);
+  const [imageUrls, setImageUrls] = useState<Record<number, string | null>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchData = () => {
@@ -41,6 +43,13 @@ export default function TeacherSubjectView() {
       const subj = s.data.find((x: any) => x.id === Number(subjectId));
       setSubject(subj);
       setClasses(c.data);
+      i.data.forEach((img: any) => {
+        if (img.file_path) {
+          supabase.storage.from(BUCKET_UPLOADS).createSignedUrl(img.file_path, 3600).then(({ data }) => {
+            if (data?.signedUrl) setImageUrls(prev => ({ ...prev, [img.id]: data.signedUrl }));
+          });
+        }
+      });
     }).finally(() => setLoading(false));
   };
 
@@ -52,7 +61,7 @@ export default function TeacherSubjectView() {
     setUploading(true);
     setSuccessCount(0);
     try {
-      await imagesApi.uploadMultiple(Number(subjectId), subject.class_id, Array.from(files));
+      await imagesApi.uploadMultiple(subject.class_id, Number(subjectId), Array.from(files));
       setSuccessCount(files.length);
       fetchData();
     } catch (err) {
@@ -103,8 +112,14 @@ export default function TeacherSubjectView() {
           const StatIcon = statusIcons[img.status] || Clock;
           return (
             <div key={img.id} className="card p-4 card-hover flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-muted)' }}>
-                <ImageIcon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: 'var(--accent-muted)' }}>
+                {imageUrls[img.id] ? (
+                  <img src={imageUrls[img.id]!} alt={img.title} className="w-full h-full object-cover"
+                    onClick={() => window.open(imageUrls[img.id]!, '_blank')}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <ImageIcon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

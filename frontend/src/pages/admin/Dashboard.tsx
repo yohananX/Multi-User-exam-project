@@ -67,7 +67,7 @@ export default function AdminDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{u.title}</p>
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {u.class_name} · {u.subject_name} · by {u.uploaded_by_name}
+                      {u.class_name} · {u.subject_name}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border" style={{ color: 'var(--text-secondary)' }}>

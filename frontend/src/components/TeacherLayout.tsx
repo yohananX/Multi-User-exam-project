@@ -69,7 +69,7 @@ export default function TeacherLayout() {
                     {s.status === 'completed' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#22c55e' }} />}
                     <span>{s.subject_name}</span>
                   </span>
-                  <span className="ml-auto text-xs" style={{ color: 'var(--text-tertiary)' }}>{s.total_images}</span>
+                  <span className="ml-auto text-xs" style={{ color: 'var(--text-tertiary)' }}>{s.status === 'completed' ? 'Done' : s.status || 'Active'}</span>
                 </Link>
               ))}
             </div>

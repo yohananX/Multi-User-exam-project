@@ -1,0 +1,5 @@
+httpx>=0.28
+python-docx>=1.1
+reportlab>=4.2
+Pillow>=11
+google-genai>=1.7

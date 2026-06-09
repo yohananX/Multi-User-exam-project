@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { School, LogIn } from 'lucide-react';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -14,10 +14,10 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     try {
-      await login(username, password);
+      await login(email, password);
       navigate('/');
     } catch {
-      setError('Invalid username or password');
+      setError('Invalid email or password');
     }
   };
 
@@ -40,9 +40,9 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Username</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)}
-              className="input-dark w-full" placeholder="Enter username" required />
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              className="input-dark w-full" placeholder="Enter email" required />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Password</label>
