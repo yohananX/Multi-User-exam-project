@@ -61,9 +61,9 @@ export default function OnboardingPage() {
     setAccountError('')
 
     try {
-      const { error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+      // Sign up the user
+      const { data, error: authError } = await supabase.auth.signUp({
+        email, password,
         options: {
           data: {
             full_name: fullName,
@@ -72,7 +72,39 @@ export default function OnboardingPage() {
           },
         },
       })
-      if (authError) throw authError
+      if (authError) {
+        const msg = authError.message
+        if (msg.includes('already registered')) {
+          throw new Error('An account with this email already exists.')
+        }
+        throw new Error(msg || 'Failed to create account')
+      }
+      if (!data.user) throw new Error('Failed to create account. Please try again.')
+
+      // Manually create user profile (trigger may not be set up yet)
+      try {
+        await supabase.from('users').insert({
+          auth_id: data.user.id,
+          username: email.split('@')[0],
+          email,
+          full_name: fullName,
+          role: 'teacher',
+        })
+      } catch (insertErr: any) {
+        // Profile may already exist from DB trigger — non-fatal
+        if (!insertErr?.message?.includes('duplicate')) {
+          console.warn('Profile insert note:', insertErr?.message)
+        }
+      }
+
+      // Sign in immediately to create a session
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        // If sign-in fails (e.g., email confirmation required), tell user
+        setAccountError('Account created! Check your email to confirm, then sign in.')
+        return
+      }
+
       setStep(2)
     } catch (err: any) {
       setAccountError(err?.message || 'Failed to create account')
@@ -133,14 +165,24 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) throw new Error('Not authenticated')
 
-      const { data: profile } = await supabase
+      // Look up profile by auth_id first, fallback to email
+      let { data: profile } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_id', user.id)
+        .eq('auth_id', authUser.id)
         .single()
+
+      if (!profile) {
+        const { data: emailProfile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', authUser.email)
+          .single()
+        profile = emailProfile
+      }
 
       if (!profile) throw new Error('Profile not found')
 
