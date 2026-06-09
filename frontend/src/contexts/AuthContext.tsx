@@ -21,11 +21,13 @@ async function fetchProfile(authId: string): Promise<User | null> {
   if (!data) return null;
   return {
     id: data.id,
+    auth_id: data.auth_id || '',
     username: data.username || '',
     email: data.email,
     full_name: data.full_name,
     role: data.role,
     school_id: data.school_id,
+    created_at: data.created_at,
   } as User;
 }
 

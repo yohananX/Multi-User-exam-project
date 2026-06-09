@@ -4,7 +4,7 @@ import type { User, Class, Subject, School, TeacherAssignment } from '../types';
 // ─── Helpers ───────────────────────────────────────────────────────
 
 function mapUser(r: any): User {
-  return { id: r.id, username: r.username || '', email: r.email, full_name: r.full_name, role: r.role, school_id: r.school_id };
+  return { id: r.id, auth_id: r.auth_id || '', username: r.username || '', email: r.email, full_name: r.full_name, role: r.role, school_id: r.school_id, created_at: r.created_at };
 }
 
 function mapSubject(r: any): Subject {
