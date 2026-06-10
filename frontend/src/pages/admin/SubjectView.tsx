@@ -44,7 +44,6 @@ function stepState(subject: any, step: string): 'incomplete' | 'in-progress' | '
   if (step === 'ocr') {
     if (status === 'completed' || status === 'ocr_complete' || status === 'docx_pending' || status === 'docx_complete' || status === 'impose_pending' || subject.ocr_text) return 'complete'
     if (status === 'ocr_pending') return 'in-progress'
-    if (status === 'active') return 'in-progress'
     return 'incomplete'
   }
 
