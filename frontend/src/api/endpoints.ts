@@ -150,6 +150,54 @@ export const subjectsApi = {
       imposed_pdf_path: s.imposed_pdf_path,
     })) };
   },
+  release: async (subjectId: number): Promise<void> => {
+    const { error } = await supabase
+      .from('subjects')
+      .update({
+        released: true,
+        released_at: new Date().toISOString(),
+      })
+      .eq('id', subjectId);
+    if (error) throw error;
+  },
+  getImposedPdfUrl: async (subjectId: number): Promise<string> => {
+    const { data: subject, error: fetchError } = await supabase
+      .from('subjects')
+      .select('imposed_pdf_path')
+      .eq('id', subjectId)
+      .single();
+    if (fetchError) throw fetchError;
+    if (!subject?.imposed_pdf_path) throw new Error('No PDF available for this subject');
+    const { data: signedData, error: signError } = await supabase
+      .storage
+      .from('generated')
+      .createSignedUrl(subject.imposed_pdf_path, 3600);
+    if (signError) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .storage
+        .from('uploads')
+        .createSignedUrl(subject.imposed_pdf_path, 3600);
+      if (fallbackError) throw fallbackError;
+      if (!fallbackData?.signedUrl) throw new Error('Could not generate download URL');
+      return fallbackData.signedUrl;
+    }
+    if (!signedData?.signedUrl) throw new Error('Could not generate download URL');
+    return signedData.signedUrl;
+  },
+  isReleased: async (subjectIds: number[]): Promise<Record<number, boolean>> => {
+    if (subjectIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('id, released, imposed_pdf_path')
+      .in('id', subjectIds)
+      .eq('released', true);
+    if (error) throw error;
+    const result: Record<number, boolean> = {};
+    (data ?? []).forEach(s => {
+      result[s.id] = s.released && !!s.imposed_pdf_path;
+    });
+    return result;
+  },
 };
 
 // ─── Assignments ───────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Image as ImageIcon, Clock, CheckCircle, Eye, Loader2, Trash2,
   FileText, Download, ScanText, FileDown, Grid3x3, ChevronLeft,
-  AlertCircle, Zap, Check, X, Settings2,
+  AlertCircle, Zap, Check, X, Settings2, SendHorizontal,
 } from 'lucide-react'
 import { imagesApi, subjectsApi, classesApi } from '../../api/endpoints'
 import { supabase } from '../../lib/supabase'

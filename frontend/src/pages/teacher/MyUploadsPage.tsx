@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { subjectsApi } from '@/api/endpoints'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +41,8 @@ export default function MyUploadsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [imageUrls, setImageUrls] = useState<Record<number, string | null>>({})
+  const [releasedSubjects, setReleasedSubjects] = useState<Record<number, boolean>>({})
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -54,6 +57,15 @@ export default function MyUploadsPage() {
         .order('created_at', { ascending: false })
 
       setSubmissions(data || [])
+
+      // Get unique subject IDs from loaded images
+      const subjectIds = [...new Set((data || []).map((img: any) => img.subject_id).filter(Boolean))] as number[]
+      if (subjectIds.length > 0) {
+        try {
+          const releasedMap = await subjectsApi.isReleased(subjectIds)
+          setReleasedSubjects(releasedMap)
+        } catch { /* silent failure */ }
+      }
 
       // Load signed URLs for thumbnails
       ;(data || []).forEach((img: any) => {
@@ -90,6 +102,18 @@ export default function MyUploadsPage() {
     if (img?.file_path) await supabase.storage.from('uploads').remove([img.file_path])
     await supabase.from('images').delete().eq('id', id)
     fetchData()
+  }
+
+  const handleDownloadPdf = async (subjectId: number) => {
+    setDownloadingId(subjectId)
+    try {
+      const url = await subjectsApi.getImposedPdfUrl(subjectId)
+      window.open(url, '_blank')
+    } catch (err) {
+      console.error('Download failed:', err)
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   return (
@@ -184,8 +208,13 @@ export default function MyUploadsPage() {
                       <td className="px-4 py-3 text-sm">{s.subjects?.name || '—'}</td>
                       <td className="px-4 py-3 text-sm">{s.classes?.name || '—'}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={statusVariant[s.status] || 'pending'} className="capitalize">
-                          {s.status}
+                        <Badge
+                          variant={statusVariant[s.status] || 'pending'}
+                          className="capitalize"
+                        >
+                          {s.status === 'completed' && releasedSubjects[s.subject_id]
+                            ? 'Ready'
+                            : s.status}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
@@ -193,6 +222,20 @@ export default function MyUploadsPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {releasedSubjects[s.subject_id] && (
+                            <button
+                              onClick={() => handleDownloadPdf(s.subject_id)}
+                              title="Download print-ready PDF"
+                              disabled={downloadingId === s.subject_id}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[hsl(var(--status-completed))] hover:bg-[hsl(var(--status-completed-bg))] transition-colors duration-120 disabled:pointer-events-none"
+                            >
+                              {downloadingId === s.subject_id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
                           {imageUrls[s.id] && (
                             <Button variant="ghost" size="icon-sm" asChild>
                               <a href={imageUrls[s.id]!} target="_blank" rel="noopener noreferrer">
