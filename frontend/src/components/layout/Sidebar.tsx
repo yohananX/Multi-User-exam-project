@@ -112,7 +112,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center gap-2.5 h-14 px-5 flex-shrink-0">
         <BookOpen className="w-5 h-5 text-accent" />
-        <span className="text-[15px] font-semibold text-text-primary">ExamVault</span>
+        <span className="text-[15px] font-semibold text-text-primary">Scribe</span>
       </div>
 
       {/* Navigation */}

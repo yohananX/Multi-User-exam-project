@@ -48,7 +48,7 @@ export default function AdminTeachers() {
   const [availableSubjects, setAvailableSubjects] = useState<any[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
 
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subjectsLoadRef = useRef<number | null>(null);
 
   // ── Data loading ─────────────────────────────────────────────────

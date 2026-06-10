@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scribe — Introduction</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    color: #111111;
+    background: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    position: relative;
+  }
+  .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 48px;
+  }
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    color: #007AFF;
+    letter-spacing: -0.01em;
+  }
+  .date {
+    font-size: 12px;
+    color: #999999;
+  }
+
+  .hook {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #111111;
+    max-width: 95%;
+    margin-bottom: 14px;
+  }
+  .context {
+    font-size: 15px;
+    color: #666666;
+    line-height: 1.5;
+    max-width: 88%;
+    margin-bottom: 0;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #E5E5E5;
+    margin: 32px 0 28px 0;
+  }
+
+  .two-col {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+  }
+  .col {
+    flex: 1;
+  }
+  .col-header {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .col-header.today { color: #666666; }
+  .col-header.with { color: #007AFF; }
+  .col ul {
+    list-style: none;
+    padding: 0;
+  }
+  .col li {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #333333;
+    padding-left: 16px;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  .col li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #007AFF;
+  }
+  .col.today li::before { background: #999999; }
+  .col.with li::before { background: #007AFF; }
+  .divider {
+    width: 1px;
+    background: #E5E5E5;
+    margin: 0 32px;
+    flex-shrink: 0;
+  }
+
+  .steps-heading {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111111;
+    margin-bottom: 16px;
+  }
+  .steps-row {
+    display: flex;
+    gap: 24px;
+  }
+  .step {
+    flex: 1;
+  }
+  .step-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: #007AFF;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .step-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111111;
+    margin-bottom: 3px;
+  }
+  .step-desc {
+    font-size: 12.5px;
+    color: #666666;
+    line-height: 1.45;
+  }
+
+  .spacer { flex: 1; }
+
+  .cta-strip {
+    background: #007AFF;
+    margin: 0 -32px -32px -32px;
+    padding: 28px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .cta-left .cta-line {
+    font-size: 16px;
+    font-weight: 500;
+    color: #ffffff;
+    margin-bottom: 3px;
+  }
+  .cta-left .cta-sub {
+    font-size: 13px;
+    color: #ffffff;
+    opacity: 0.8;
+  }
+  .cta-right {
+    text-align: right;
+    font-size: 12px;
+    color: #ffffff;
+    line-height: 1.6;
+    opacity: 0.9;
+  }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { size: A4; margin: 0; }
+    .page { height: auto; min-height: 297mm; }
+    .cta-strip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top-row">
+    <span class="logo">Scribe</span>
+    <span class="date">June 2026</span>
+  </div>
+
+  <div class="hook">
+    Every term, your school spends tens of thousands of naira<br>
+    photocopying exam scripts that could be digital in seconds.
+  </div>
+  <p class="context">
+    Scribe digitises your entire exam script workflow — from teacher upload to print-ready booklets — in one platform.
+  </p>
+
+  <hr>
+
+  <div class="two-col">
+    <div class="col today">
+      <div class="col-header today">Today</div>
+      <ul>
+        <li>Teachers manually photocopy scripts at ₦5–15 per page</li>
+        <li>Admin staff sort and distribute hundreds of physical scripts</li>
+        <li>Answer scripts are stored in files that get lost or damaged</li>
+        <li>Results have to be typed up from handwritten papers</li>
+      </ul>
+    </div>
+    <div class="divider"></div>
+    <div class="col with">
+      <div class="col-header with">With Scribe</div>
+      <ul>
+        <li>Teachers upload scripts digitally — zero printing cost</li>
+        <li>The platform sorts and organises everything automatically</li>
+        <li>Every script stored securely, searchable, never lost</li>
+        <li>AI reads handwriting and generates formatted documents instantly</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="steps-heading">Three steps. That&rsquo;s it.</div>
+  <div class="steps-row">
+    <div class="step">
+      <div class="step-num">Step 1</div>
+      <div class="step-label">Upload</div>
+      <div class="step-desc">Teachers photograph or scan scripts and upload them.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 2</div>
+      <div class="step-label">Process</div>
+      <div class="step-desc">AI converts handwriting to formatted exam documents.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 3</div>
+      <div class="step-label">Download</div>
+      <div class="step-desc">Print-ready booklets, ready in minutes.</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="cta-strip">
+    <div class="cta-left">
+      <div class="cta-line">I&rsquo;d love to show you a live demo.</div>
+      <div class="cta-sub">No commitment. 20 minutes.</div>
+    </div>
+    <div class="cta-right">
+      [YOUR NAME]<br>
+      [YOUR PHONE]<br>
+      [YOUR EMAIL]
+    </div>
+  </div>
+</div>
+</body>
+</html>

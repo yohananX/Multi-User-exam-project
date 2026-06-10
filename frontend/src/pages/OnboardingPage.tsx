@@ -857,7 +857,7 @@ export default function OnboardingPage() {
       {/* Logo */}
       <div className="flex items-center gap-2 mb-8">
         <BookOpen size={28} className="text-accent" />
-        <span className="text-lg font-semibold tracking-tight text-text-primary">ExamVault</span>
+        <span className="text-lg font-semibold tracking-tight text-text-primary">Scribe</span>
       </div>
 
       {/* Card */}

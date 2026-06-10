@@ -45,7 +45,7 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
             <School className="w-6 h-6 text-primary-foreground" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">ExamVault</h1>
+          <h1 className="text-xl font-bold tracking-tight">Scribe</h1>
           <p className="text-sm text-muted-foreground mt-1">School Examination Management</p>
         </div>
 

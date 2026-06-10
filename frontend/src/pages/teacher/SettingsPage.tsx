@@ -84,8 +84,7 @@ export default function SettingsPage() {
       .then(({ data }) => {
         setAssignments(data || [])
         setLoadingAssignments(false)
-      })
-      .catch(() => setLoadingAssignments(false))
+      }, () => setLoadingAssignments(false))
   }, [user?.id])
 
   // ── Profile save ──

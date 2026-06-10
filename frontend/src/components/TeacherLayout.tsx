@@ -44,7 +44,7 @@ export default function TeacherLayout() {
       <div className="sidebar w-64 flex flex-col flex-shrink-0">
         <div className="flex items-center gap-3 px-4 h-14 border-b border-border flex-shrink-0">
           <School className="w-6 h-6" style={{ color: 'var(--accent)' }} />
-          <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>ExamVault</span>
+          <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Scribe</span>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
           <Link to="/" className={`sidebar-link ${location.pathname === '/' ? 'active' : ''}`}>
