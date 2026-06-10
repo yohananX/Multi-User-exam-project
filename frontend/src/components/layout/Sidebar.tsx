@@ -1,47 +1,92 @@
-import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Upload,
-  FileText,
+  FolderOpen,
   MessageSquare,
   ChevronDown,
   ChevronRight,
   LogOut,
-  School,
+  BookOpen,
   GraduationCap,
   Users,
+  FileStack,
   Settings,
-  Bell,
-  Search,
+  ChevronUp,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/contexts/AuthContext'
-import { dashboardApi } from '@/api/endpoints'
+import { dashboardApi, messagesApi } from '@/api/endpoints'
 
 interface NavItem {
   label: string
   icon: React.ElementType
-  href?: string
-  children?: { label: string; href: string; id: number }[]
+  href: string
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  open: boolean
+  onClose: () => void
+}
+
+const teacherNav: NavItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+  { label: 'Upload Exam', icon: Upload, href: '/upload' },
+  { label: 'My Uploads', icon: FolderOpen, href: '/uploads' },
+]
+
+const adminNav: NavItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+  { label: 'Teachers', icon: Users, href: '/admin/teachers' },
+  { label: 'Classes', icon: GraduationCap, href: '/admin/classes' },
+  { label: 'Structure', icon: FileStack, href: '/admin/structure' },
+]
+
+const messagesNav: NavItem[] = [
+  { label: 'Messages', icon: MessageSquare, href: '/messages' },
+]
+
+export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const isTeacher = user?.role === 'teacher'
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
   const [structure, setStructure] = useState<any[]>([])
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set())
-  const [collapsed, setCollapsed] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     if (!isTeacher) {
       dashboardApi.structure().then(res => setStructure(res.data)).catch(() => {})
     }
   }, [isTeacher])
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      const { data: messages } = await messagesApi.list()
+      if (!messages) return
+      const myId = user?.auth_id
+      if (!myId) return
+      setUnreadCount(messages.filter((m: any) => m.recipient_id === myId && !m.read).length)
+    }
+    fetchUnread()
+    const unsub = messagesApi.subscribe(user?.auth_id || '', () => fetchUnread())
+    return () => { unsub.unsubscribe() }
+  }, [user?.auth_id])
 
   const toggleClass = (id: number) => {
     setExpandedClasses(prev => {
@@ -60,100 +105,128 @@ export function Sidebar() {
     ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
 
-  const teacherNav: NavItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { label: 'Upload Exam', icon: Upload, href: '/upload' },
-    { label: 'My Uploads', icon: FileText, href: '/uploads' },
-    { label: 'Messages', icon: MessageSquare, href: '/messages' },
-  ]
+  const mainNav = isTeacher ? teacherNav : adminNav
 
-  const adminNav: NavItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { label: 'Submissions', icon: FileText, href: '/admin/submissions' },
-    { label: 'Teachers', icon: Users, href: '/admin/teachers' },
-    { label: 'Classes', icon: GraduationCap, href: '/admin/classes' },
-    { label: 'Messages', icon: MessageSquare, href: '/admin/messages' },
-  ]
-
-  const navItems = isTeacher ? teacherNav : adminNav
-
-  return (
-    <aside
-      className={cn(
-        'flex flex-col border-r border-border bg-sidebar transition-all duration-300',
-        collapsed ? 'w-16' : 'w-60',
-      )}
-    >
+  const sidebarContent = (
+    <aside className="flex flex-col h-full bg-background-secondary border-r border-border w-[220px]">
       {/* Logo */}
-      <div className={cn('flex items-center gap-3 h-14 px-4 border-b border-border', collapsed && 'justify-center px-0')}>
-        <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-          <School className="w-4 h-4 text-primary-foreground" />
-        </div>
-        {!collapsed && (
-          <span className="font-semibold text-sm tracking-tight">ExamVault</span>
-        )}
+      <div className="flex items-center gap-2.5 h-14 px-5 flex-shrink-0">
+        <BookOpen className="w-5 h-5 text-accent" />
+        <span className="text-[15px] font-semibold text-text-primary">ExamVault</span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-        {navItems.map(item => (
-          <div key={item.label}>
-            {item.href ? (
-              <Link
-                to={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                  'hover:bg-sidebar-muted hover:text-foreground',
-                  isActive(item.href)
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-sidebar-foreground',
-                  collapsed && 'justify-center px-2',
-                )}
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            ) : null}
-          </div>
+      <nav className="flex-1 overflow-y-auto py-1">
+        {mainNav.map(item => (
+          <Link
+            key={item.href}
+            to={item.href}
+            onClick={() => onClose()}
+            className={cn(
+              'flex items-center gap-3 mx-2 px-2 h-8 rounded-sm text-sm transition-colors duration-fast',
+              isActive(item.href)
+                ? 'bg-accent/10 text-accent font-medium'
+                : 'text-text-secondary hover:bg-background-tertiary hover:text-text-primary',
+            )}
+          >
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+            <span>{item.label}</span>
+          </Link>
         ))}
 
-        {/* Structure tree for admin */}
-        {!isTeacher && !collapsed && structure.length > 0 && (
+        {/* Super Admin section */}
+        {user?.role === 'super_admin' && (
           <>
-            <Separator className="my-3" />
-            <div className="px-3 py-1">
-              <p className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground">
-                All Exams
+            <div className="px-4 pt-5 pb-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+                Super Admin
+              </p>
+            </div>
+            <Link
+              to="/admin/super"
+              onClick={() => onClose()}
+              className={cn(
+                'flex items-center gap-3 mx-2 px-2 h-8 rounded-sm text-sm transition-colors duration-fast',
+                isActive('/admin/super')
+                  ? 'bg-accent/10 text-accent font-medium'
+                  : 'text-text-secondary hover:bg-background-tertiary hover:text-text-primary',
+              )}
+            >
+              <Shield className="w-4 h-4 flex-shrink-0" />
+              <span>Management</span>
+            </Link>
+          </>
+        )}
+
+        {/* Messages section */}
+        <div className="px-4 pt-5 pb-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+            Messages
+          </p>
+        </div>
+        {messagesNav.map(item => (
+          <Link
+            key={item.href}
+            to={item.href}
+            onClick={() => onClose()}
+            className={cn(
+              'flex items-center gap-3 mx-2 px-2 h-8 rounded-sm text-sm transition-colors duration-fast',
+              isActive(item.href)
+                ? 'bg-accent/10 text-accent font-medium'
+                : 'text-text-secondary hover:bg-background-tertiary hover:text-text-primary',
+            )}
+          >
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1">{item.label}</span>
+            {unreadCount > 0 && (
+              <span className="text-[11px] font-semibold text-accent-foreground bg-accent rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
+        ))}
+
+        {/* Structure section for admin */}
+        {!isTeacher && structure.length > 0 && (
+          <>
+            <div className="px-4 pt-5 pb-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+                Structure
               </p>
             </div>
             {structure.map(cls => (
               <div key={cls.id}>
                 <button
                   onClick={() => toggleClass(cls.id)}
-                  className="flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className={cn(
+                    'flex items-center justify-between w-full mx-2 px-2 h-8 rounded-sm text-sm transition-colors duration-fast',
+                    'text-text-secondary hover:bg-background-tertiary hover:text-text-primary',
+                  )}
+                  style={{ width: 'calc(100% - 16px)' }}
                 >
-                  <span>{cls.name}</span>
+                  <span className="truncate">{cls.name}</span>
                   {expandedClasses.has(cls.id) ? (
-                    <ChevronDown className="w-3 h-3" />
+                    <ChevronDown className="w-3 h-3 flex-shrink-0 text-text-tertiary" />
                   ) : (
-                    <ChevronRight className="w-3 h-3" />
+                    <ChevronRight className="w-3 h-3 flex-shrink-0 text-text-tertiary" />
                   )}
                 </button>
                 {expandedClasses.has(cls.id) && cls.subjects?.map((subj: any) => (
                   <Link
                     key={subj.id}
                     to={`/admin/subjects/${subj.id}`}
+                    onClick={() => onClose()}
                     className={cn(
-                      'flex items-center gap-2 pl-8 pr-3 py-1.5 rounded-lg text-xs transition-colors',
+                      'flex items-center gap-2 pl-7 pr-3 h-7 text-xs transition-colors duration-fast mx-2 rounded-sm',
                       location.pathname === `/admin/subjects/${subj.id}`
-                        ? 'text-primary bg-primary/10'
-                        : 'text-muted-foreground hover:text-foreground',
+                        ? 'text-accent bg-accent/10 font-medium'
+                        : 'text-text-tertiary hover:text-text-primary hover:bg-background-tertiary',
                     )}
+                    style={{ width: 'calc(100% - 16px)' }}
                   >
                     <span className={cn(
                       'w-1.5 h-1.5 rounded-full flex-shrink-0',
-                      subj.status === 'completed' ? 'bg-status-completed' : 'bg-muted-foreground/30',
+                      subj.status === 'completed' ? 'bg-status-completed' : 'bg-status-pending',
                     )} />
                     {subj.name}
                   </Link>
@@ -164,36 +237,75 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* User footer */}
-      <div className={cn('border-t border-border p-3', collapsed && 'flex flex-col items-center gap-2')}>
-        {!collapsed && (
-          <div className="flex items-center gap-3 px-1 mb-2">
-            <Avatar className="w-8 h-8">
-              <AvatarFallback className="text-xs bg-primary/20 text-primary">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.full_name}</p>
-              <p className="text-2xs text-muted-foreground capitalize">{user?.role?.replace('_', ' ')}</p>
+      {/* User section */}
+      <div className="flex-shrink-0 border-t border-border" ref={profileRef}>
+        <div className="relative">
+          <button
+            onClick={() => setProfileOpen(v => !v)}
+            className="flex items-center gap-3 w-full px-4 py-3 cursor-pointer hover:bg-background-tertiary transition-colors duration-fast"
+          >
+            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+              <span className="text-[13px] font-semibold text-accent-foreground">{initials}</span>
             </div>
-          </div>
-        )}
-        {collapsed && (
-          <Avatar className="w-8 h-8 mb-2">
-            <AvatarFallback className="text-xs bg-primary/20 text-primary">{initials}</AvatarFallback>
-          </Avatar>
-        )}
-        <Button
-          variant="ghost"
-          size={collapsed ? 'icon' : 'sm'}
-          className={cn('w-full justify-start text-muted-foreground', collapsed && 'justify-center')}
-          onClick={logout}
-        >
-          <LogOut className="w-4 h-4" />
-          {!collapsed && <span className="ml-2">Sign Out</span>}
-        </Button>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[13px] font-medium text-text-primary truncate">{user?.full_name}</p>
+              <p className="text-[11px] text-text-tertiary capitalize truncate">{user?.role?.replace('_', ' ')}</p>
+            </div>
+            <ChevronUp
+              className={cn(
+                'w-4 h-4 text-text-tertiary transition-transform duration-200',
+                profileOpen ? 'rotate-0' : 'rotate-180',
+              )}
+            />
+          </button>
+
+          {profileOpen && (
+            <div className="absolute bottom-[calc(100%+8px)] left-2 right-2 bg-surface border border-border rounded-[16px] shadow-lg overflow-hidden z-50 animate-slide-up">
+              <button
+                onClick={() => { navigate('/settings'); setProfileOpen(false) }}
+                className="flex items-center gap-3 w-full h-11 px-4 text-sm text-text-primary hover:bg-background-secondary transition-colors duration-fast"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </button>
+              <button
+                onClick={() => { logout(); setProfileOpen(false) }}
+                className="flex items-center gap-3 w-full h-11 px-4 text-sm text-status-rejected hover:bg-background-secondary transition-colors duration-fast"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
+  )
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block h-screen fixed left-0 top-0 z-30 overflow-visible">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile drawer overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <div
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-slow ease-apple',
+          open ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        {sidebarContent}
+      </div>
+    </>
   )
 }

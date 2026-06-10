@@ -50,14 +50,36 @@ def get_current_user(
 ) -> CurrentUser:
     from app.supabase_db import select
 
-    payload = decode_token(credentials.credentials)
-    user_id = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-    user = select("users", filters={"id": f"eq.{int(user_id)}"}, single=True)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return CurrentUser(user)
+    token = credentials.credentials
+
+    # Try backend JWT first
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload.get("sub")
+        if user_id is not None:
+            user = select("users", filters={"id": f"eq.{int(user_id)}"}, single=True)
+            if user:
+                return CurrentUser(user)
+    except Exception:
+        pass
+
+    # Fall back to Supabase JWT
+    try:
+        payload = jwt.get_unverified_claims(token)
+        auth_id = payload.get("sub")
+        email = payload.get("email")
+        if auth_id:
+            user = select("users", filters={"auth_id": f"eq.{auth_id}"}, single=True)
+            if user:
+                return CurrentUser(user)
+        if email:
+            user = select("users", filters={"email": f"eq.{email}"}, single=True)
+            if user:
+                return CurrentUser(user)
+    except Exception:
+        pass
+
+    raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def require_role(*roles: str):

@@ -62,13 +62,26 @@ export interface Submission {
 export interface Message {
   id: number
   sender_id: string
-  recipient_id: string | null
+  recipient_id: string
   subject_id: number | null
-  title: string
+  image_id: number | null
+  class_id: number | null
+  teacher_ref_id: number | null
   body: string
   read: boolean
   created_at: string
-  sender?: User
+  sender_name?: string
+  subject_name?: string
+  image_title?: string
+  class_name?: string
+  teacher_ref_name?: string
+}
+
+export interface Conversation {
+  partner_id: string
+  partner_name: string
+  last_message: Message
+  unread_count: number
 }
 
 export interface UploadForm {
@@ -96,5 +109,17 @@ export interface ActivityItem {
   message: string
   subject_name?: string
   class_name?: string
+  created_at: string
+}
+
+export interface Notification {
+  id: number
+  recipient_id: number
+  recipient_role: string
+  type: 'new_teacher' | 'script_uploaded' | 'subject_completed' | 'new_message' | 'new_assignment'
+  title: string
+  body: string
+  link: string | null
+  read: boolean
   created_at: string
 }

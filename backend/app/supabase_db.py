@@ -110,7 +110,7 @@ def raw(sql_or_func: str, params: dict | None = None):
 
 # ─── Supabase Storage ───────────────────────────────────────────────
 
-STORAGE_BUCKET = "exam-files"
+STORAGE_BUCKET = "uploads"
 STORAGE_URL = f"{SUPABASE_URL}/storage/v1"
 
 _storage_headers = {
@@ -137,11 +137,11 @@ def storage_ensure_bucket():
 
 
 def storage_upload(storage_path: str, data: bytes, content_type: str = "application/octet-stream"):
-    """Upload a file to Supabase Storage. Returns the path."""
+    """Upload a file to Supabase Storage. Uses PUT with upsert so it works for new and existing files."""
     _rate_limit()
-    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}")
-    with httpx.Client(timeout=60.0) as client:
-        r = client.post(url, headers={**_storage_headers, "Content-Type": content_type}, content=data)
+    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}") + "?upsert=true"
+    with httpx.Client(timeout=120.0) as client:
+        r = client.put(url, headers={**_storage_headers, "Content-Type": content_type}, content=data)
         r.raise_for_status()
         return storage_path
 
