@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   BookOpen, Clock, CheckCircle, MessageSquare, Zap, XCircle,
   Upload, FolderOpen, FileText, ChevronRight, Bell, Check, Eye,
@@ -60,6 +60,7 @@ function StatCardSkeleton() {
 export default function TeacherDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const greeting = useGreeting()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -134,7 +135,8 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location])
 
   useEffect(() => {
     fetchNotifications()
@@ -154,6 +156,23 @@ export default function TeacherDashboard() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [user?.auth_id, fetchNotifications])
+
+  // Realtime subscription: refetch dashboard data when teacher_assignments change
+  useEffect(() => {
+    if (!user?.id) return
+    const name = `db-assignments-${user.id}`
+    const existing = supabase.getChannels().find((c: any) => c.topic === name)
+    if (existing) supabase.removeChannel(existing)
+    const channel = supabase
+      .channel(name)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'teacher_assignments', filter: `teacher_id=eq.${user.id}` },
+        () => fetchData(),
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   const firstName = user?.full_name?.split(' ')[0] || 'Teacher'
   const subjects = (data?.subjects || []).slice().sort(

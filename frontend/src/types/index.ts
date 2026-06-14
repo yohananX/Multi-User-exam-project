@@ -30,6 +30,9 @@ export interface Subject {
   ocr_text: string | null
   docx_path: string | null
   imposed_pdf_path: string | null
+  docx_preview_paths: string[] | null
+  impose_preview_paths: string[] | null
+  rejection_reason: string | null
   created_at?: string
 }
 
@@ -53,6 +56,7 @@ export interface Submission {
   subject_id: number
   uploaded_by: string
   processed_by: string | null
+  rejection_reason?: string | null
   created_at: string
   updated_at: string
   subject?: Subject
@@ -122,4 +126,19 @@ export interface Notification {
   link: string | null
   read: boolean
   created_at: string
+}
+
+export interface SubjectDownload {
+  id: number;
+  subject_id: number;
+  teacher_id: number;
+  status: 'new' | 'downloaded';
+  released_at: string;
+  downloaded_at: string | null;
+  subject_name?: string;
+  class_name?: string;
+  imposed_pdf_path?: string;
+  docx_path?: string;
+  term?: string;
+  exam_type?: string;
 }

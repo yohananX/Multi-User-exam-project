@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { School, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,14 +14,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessMsg('')
     setLoading(true)
+
+    if (forgotMode) {
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        })
+        if (resetError) throw resetError
+        setSuccessMsg('Reset link sent! Please check your email inbox.')
+      } catch (err: any) {
+        setError(err?.message || 'Failed to send reset link.')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     try {
       await login(email, password)
       navigate('/')
@@ -51,14 +71,23 @@ export default function LoginPage() {
 
         <Card className="border-border/50 shadow-xl">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base">Welcome back</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardTitle className="text-base">{forgotMode ? 'Reset password' : 'Welcome back'}</CardTitle>
+            <CardDescription>
+              {forgotMode
+                ? 'Enter your email address to receive a recovery link'
+                : 'Sign in to your account'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="text-sm px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+                <div className="text-sm px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive animate-fade-in">
                   {error}
+                </div>
+              )}
+              {successMsg && (
+                <div className="text-sm px-4 py-3 rounded-lg bg-status-completed-bg border border-status-completed/20 text-status-completed animate-fade-in">
+                  {successMsg}
                 </div>
               )}
 
@@ -75,42 +104,58 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <button type="button" className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                    Forgot password?
-                  </button>
+              {!forgotMode && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <button
+                      type="button"
+                      onClick={() => { setForgotMode(true); setError(''); setSuccessMsg('') }}
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signing in...
+                    {forgotMode ? 'Sending link...' : 'Signing in...'}
                   </>
                 ) : (
-                  'Sign in'
+                  forgotMode ? 'Send Reset Link' : 'Sign in'
                 )}
               </Button>
+
+              {forgotMode && (
+                <button
+                  type="button"
+                  onClick={() => { setForgotMode(false); setError(''); setSuccessMsg('') }}
+                  className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors mt-2 block"
+                >
+                  Back to login
+                </button>
+              )}
             </form>
           </CardContent>
         </Card>

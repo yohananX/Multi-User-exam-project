@@ -1,4 +1,6 @@
 import os
+import json
+import base64
 import uuid
 import shutil
 import tempfile
@@ -513,10 +515,14 @@ def build_docx(
         tmp_docx = tempfile.mktemp(suffix=".docx")
         ocr_text_to_docx(subj["ocr_text"], subj["name"], cls_name, tmp_docx)
 
-        storage_path = _output_storage_path(subj["class_id"], subject_id, f"{cls_name} - {subj['name']} Exam.docx")
-        with open(tmp_docx, "rb") as f:
-            storage_upload(storage_path, f.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        update("subjects", {"docx_path": storage_path}, {"id": f"eq.{subject_id}"})
+        docx_storage_path = f"generated/subject_{subject_id}/exam.docx"
+        try:
+            with open(tmp_docx, "rb") as f:
+                storage_upload(docx_storage_path, f.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            update("subjects", {"docx_path": docx_storage_path}, {"id": f"eq.{subject_id}"})
+        except Exception as e:
+            print(f"[images.py] Error saving DOCX to generated/: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to save DOCX: {e}")
 
         previews = []
         try:
@@ -526,7 +532,19 @@ def build_docx(
         except Exception:
             pass
 
-        return {"message": "DOCX built", "docx_path": storage_path, "previews": previews}
+        if previews:
+            try:
+                preview_paths = []
+                for i, b64 in enumerate(previews):
+                    png_data = base64.b64decode(b64)
+                    p = f"generated/subject_{subject_id}/docx_preview_{i}.png"
+                    storage_upload(p, png_data, "image/png")
+                    preview_paths.append(p)
+                update("subjects", {"docx_preview_paths": preview_paths}, {"id": f"eq.{subject_id}"})
+            except Exception as e:
+                print(f"[images.py] Warning: failed to save DOCX previews: {e}")
+
+        return {"message": "DOCX built", "docx_path": docx_storage_path, "previews": previews}
     finally:
         for p in (tmp_docx, tmp_pdf):
             if p and os.path.exists(p):
@@ -571,6 +589,8 @@ def impose_exam(
     header_pg2: bool = False,
     manual_scale_a: float = 0,
     manual_scale_b: float = 0,
+    scale_a: int = 100,
+    scale_b: int = 100,
     current_user: CurrentUser = Depends(require_admin),
 ):
     from app.core.pipeline import process_exam, generate_pdf_previews
@@ -595,13 +615,21 @@ def impose_exam(
             page_margin_cm=float(page_margin_cm),
             split_mode=split_mode, header_pg2=bool(header_pg2),
             manual_scale_a=float(manual_scale_a), manual_scale_b=float(manual_scale_b),
+            scale_a=scale_a, scale_b=scale_b,
         )
         tmp_files.append(result_pdf)
 
-        output_storage = _output_storage_path(subj["class_id"], subject_id, "imposed_exam.pdf")
-        with open(result_pdf, "rb") as f:
-            storage_upload(output_storage, f.read(), "application/pdf")
-        update("subjects", {"imposed_pdf_path": output_storage}, {"id": f"eq.{subject_id}"})
+        imposed_storage_path = f"generated/subject_{subject_id}/imposed.pdf"
+        try:
+            with open(result_pdf, "rb") as f:
+                storage_upload(imposed_storage_path, f.read(), "application/pdf")
+            update("subjects", {
+                "imposed_pdf_path": imposed_storage_path,
+                "status": "completed",
+            }, {"id": f"eq.{subject_id}"})
+        except Exception as e:
+            print(f"[images.py] Error saving imposed PDF: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to save imposed PDF: {e}")
 
         previews = []
         try:
@@ -609,7 +637,19 @@ def impose_exam(
         except Exception:
             pass
 
-        return {"message": "Imposed PDF generated", "file_path": output_storage, "previews": previews}
+        if previews:
+            try:
+                preview_paths = []
+                for i, b64 in enumerate(previews):
+                    png_data = base64.b64decode(b64)
+                    p = f"generated/subject_{subject_id}/impose_preview_{i}.png"
+                    storage_upload(p, png_data, "image/png")
+                    preview_paths.append(p)
+                update("subjects", {"impose_preview_paths": preview_paths}, {"id": f"eq.{subject_id}"})
+            except Exception as e:
+                print(f"[images.py] Warning: failed to save impose previews: {e}")
+
+        return {"message": "Imposed PDF generated", "file_path": imposed_storage_path, "previews": previews}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Impose failed: {str(e)}")
     finally:

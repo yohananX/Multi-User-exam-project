@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   Image as ImageIcon, Clock, CheckCircle, Eye, Loader2, Trash2,
   FileText, Download, ScanText, FileDown, Grid3x3, ChevronLeft,
-  AlertCircle, Zap, Check, X, Settings2, SendHorizontal,
+  ChevronRight, AlertCircle, Zap, Check, X, Settings2, SendHorizontal,
 } from 'lucide-react'
 import { imagesApi, subjectsApi, classesApi } from '../../api/endpoints'
 import { supabase } from '../../lib/supabase'
@@ -13,6 +13,7 @@ const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-status-pending-bg text-status-pending',
   in_review: 'bg-status-processing-bg text-status-processing',
   completed: 'bg-status-completed-bg text-status-completed',
+  rejected: 'bg-status-rejected-bg text-status-rejected',
 }
 
 const PIPELINE_STEPS = [
@@ -35,6 +36,8 @@ const DEFAULT_IMPOSE_PARAMS = {
   page_margin_cm: 0.4,
   split_mode: 'Auto',
   header_pg2: false,
+  scale_a: 100,
+  scale_b: 100,
 }
 
 function stepState(subject: any, step: string): 'incomplete' | 'in-progress' | 'complete' {
@@ -141,6 +144,19 @@ export default function AdminSubjectView() {
 
       if (subj?.docx_path) setDocxDownloadUrl(await getSignedUrl(subj.docx_path))
       if (subj?.imposed_pdf_path) setImposedDownloadUrl(await getSignedUrl(subj.imposed_pdf_path))
+
+      if (subj?.docx_preview_paths?.length) {
+        const signed = await Promise.all(
+          subj.docx_preview_paths.map((p: string) => getSignedUrl(p))
+        )
+        setDocxPreviews(signed.filter(Boolean) as string[])
+      }
+      if (subj?.impose_preview_paths?.length) {
+        const signed = await Promise.all(
+          subj.impose_preview_paths.map((p: string) => getSignedUrl(p))
+        )
+        setImposePreviews(signed.filter(Boolean) as string[])
+      }
     } catch {
       showFeedback('error', 'Failed to load subject data')
     } finally {
@@ -184,7 +200,7 @@ export default function AdminSubjectView() {
     try {
       const res = await imagesApi.buildDocx(Number(subjectId))
       showFeedback('success', res.data.message)
-      if (res.data.previews?.length) setDocxPreviews(res.data.previews)
+      if (res.data.previews?.length) setDocxPreviews(res.data.previews.map((b: string) => `data:image/png;base64,${b}`))
       setTimeout(fetchData, 1000)
     } catch (e: any) {
       setDocxError(e?.message || 'Build failed')
@@ -209,7 +225,7 @@ export default function AdminSubjectView() {
     try {
       const res = await imagesApi.impose(Number(subjectId), imposeParams)
       showFeedback('success', res.data.message)
-      if (res.data.previews?.length) setImposePreviews(res.data.previews)
+      if (res.data.previews?.length) setImposePreviews(res.data.previews.map((b: string) => `data:image/png;base64,${b}`))
       setTimeout(fetchData, 1000)
     } catch (e: any) {
       setImposeError(e?.message || 'Impose failed')
@@ -307,6 +323,13 @@ export default function AdminSubjectView() {
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div>
+              <nav className="flex items-center gap-1.5 text-xs text-text-tertiary mb-1">
+                <Link to="/admin/structure" className="hover:text-primary transition-colors">Classes</Link>
+                <ChevronRight className="w-3 h-3" />
+                <span>{className || '...'}</span>
+                <ChevronRight className="w-3 h-3" />
+                <span className="text-text-primary font-medium">{subject?.name || 'Subject'}</span>
+              </nav>
               <h1 className="text-[22px] font-bold tracking-tight text-text-primary">
                 {subject?.name || 'Subject'}
               </h1>
@@ -316,6 +339,12 @@ export default function AdminSubjectView() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {subject?.rejection_reason && (
+              <div className="text-xs px-3 py-1.5 rounded-lg bg-status-rejected-bg text-status-rejected border border-status-rejected/20 max-w-[300px] truncate" title={subject.rejection_reason}>
+                <AlertCircle className="w-3 h-3 inline mr-1 -mt-0.5" />
+                {subject.rejection_reason}
+              </div>
+            )}
             {subject && (
               <button
                 onClick={handleToggleStatus}
@@ -457,13 +486,13 @@ export default function AdminSubjectView() {
               <div className="mt-3 space-y-2">
                 <p className="text-[12px] font-medium text-text-secondary">Preview</p>
                 <div className="flex gap-3 overflow-x-auto pb-2">
-                  {docxPreviews.map((b64, i) => (
+                  {docxPreviews.map((url, i) => (
                     <img
                       key={i}
-                      src={`data:image/png;base64,${b64}`}
+                      src={url}
                       alt={`DOCX preview ${i + 1}`}
                       className="h-48 rounded-[8px] border border-border shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(`data:image/png;base64,${b64}`, '_blank')}
+                      onClick={() => window.open(url, '_blank')}
                     />
                   ))}
                 </div>
@@ -564,6 +593,27 @@ export default function AdminSubjectView() {
                     </label>
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-text-secondary mb-1">Section A Scale</label>
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={50} max={150} step={5} value={imposeParams.scale_a}
+                        onChange={e => setImposeParams(p => ({ ...p, scale_a: Number(e.target.value) }))}
+                        className="flex-1 h-8 px-2.5 rounded-[8px] bg-surface border border-border text-[13px] text-text-primary outline-none focus:border-accent" />
+                      <span className="text-[12px] text-text-secondary w-4">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-text-secondary mb-1">Section B Scale</label>
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={50} max={150} step={5} value={imposeParams.scale_b}
+                        onChange={e => setImposeParams(p => ({ ...p, scale_b: Number(e.target.value) }))}
+                        className="flex-1 h-8 px-2.5 rounded-[8px] bg-surface border border-border text-[13px] text-text-primary outline-none focus:border-accent" />
+                      <span className="text-[12px] text-text-secondary w-4">%</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[12px] text-text-tertiary italic">100% uses automatic fit. Higher values enlarge text, lower values compact it.</p>
               </div>
             )}
 
@@ -573,13 +623,13 @@ export default function AdminSubjectView() {
               <div className="mt-3 space-y-2">
                 <p className="text-[12px] font-medium text-text-secondary">Preview</p>
                 <div className="flex gap-3 overflow-x-auto pb-2">
-                  {imposePreviews.map((b64, i) => (
+                  {imposePreviews.map((url, i) => (
                     <img
                       key={i}
-                      src={`data:image/png;base64,${b64}`}
+                      src={url}
                       alt={`Impose preview ${i + 1}`}
                       className="h-48 rounded-[8px] border border-border shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(`data:image/png;base64,${b64}`, '_blank')}
+                      onClick={() => window.open(url, '_blank')}
                     />
                   ))}
                 </div>
@@ -657,6 +707,12 @@ export default function AdminSubjectView() {
                             )}>
                               {img.status}
                             </span>
+                            {img.rejection_reason && (
+                              <span className="text-[10px] text-status-rejected truncate ml-1 max-w-[80px]" title={img.rejection_reason}>
+                                <AlertCircle className="w-2.5 h-2.5 inline mr-0.5 -mt-0.5" />
+                                {img.rejection_reason}
+                              </span>
+                            )}
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeletingImageId(img.id) }}
                               className="w-6 h-6 flex items-center justify-center rounded-sm bg-white/20 text-white hover:bg-status-rejected/80 transition-colors"

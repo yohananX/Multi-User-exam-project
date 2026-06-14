@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { backendPost, backendGet, backendPut, backendDelete, getAuthHeaders, BACKEND_URL } from './client';
-import type { User, Class, Subject, School, TeacherAssignment, Notification } from '../types';
+import type { User, Class, Subject, School, TeacherAssignment, Notification, SubjectDownload } from '../types';
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
@@ -9,7 +9,7 @@ function mapUser(r: any): User {
 }
 
 function mapSubject(r: any): Subject {
-  return { id: r.id, name: r.name, class_id: r.class_id, status: r.status, ocr_text: r.ocr_text, docx_path: r.docx_path, imposed_pdf_path: r.imposed_pdf_path };
+  return { id: r.id, name: r.name, class_id: r.class_id, status: r.status, ocr_text: r.ocr_text, docx_path: r.docx_path, imposed_pdf_path: r.imposed_pdf_path, docx_preview_paths: r.docx_preview_paths ?? null, impose_preview_paths: r.impose_preview_paths ?? null, rejection_reason: r.rejection_reason ?? null };
 }
 
 // ─── Auth ──────────────────────────────────────────────────────────
@@ -58,13 +58,26 @@ export const usersApi = {
   },
   create: async (fields: Partial<User> & { password: string }) => {
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: fields.email!, password: fields.password, email_confirm: true,
+      email: fields.email!,
+      password: fields.password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fields.full_name,
+        username: fields.username,
+        role: fields.role,
+        school_id: fields.school_id,
+      }
     });
     if (authError) throw authError;
-    const { data } = await supabase.from('users').insert({
-      auth_id: authData.user!.id, email: fields.email, full_name: fields.full_name,
-      username: fields.username, role: fields.role, school_id: fields.school_id,
-    }).select().single();
+    const { data, error } = await supabase.from('users').upsert({
+      auth_id: authData.user!.id,
+      email: fields.email,
+      full_name: fields.full_name,
+      username: fields.username,
+      role: fields.role,
+      school_id: fields.school_id,
+    }, { onConflict: 'email' }).select().single();
+    if (error) throw error;
     return { data: mapUser(data) };
   },
   delete: async (id: number) => {
@@ -94,7 +107,7 @@ export const schoolsApi = {
 // ─── Classes ───────────────────────────────────────────────────────
 
 const CLASS_SORT_ORDER = [
-  'Reception', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6',
+  'Nursery 1', 'Nursery 2', 'Reception', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6',
   'JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3',
 ];
 
@@ -303,7 +316,7 @@ export const imagesApi = {
       return { data: { message: 'Queued for OCR (worker pending)', ocr_text: '' } };
     }
   },
-  impose: async (subjectId: number, params?: { cols?: number; rows?: number; margin_mm?: number; gap_mm?: number; page_margin_cm?: number; split_mode?: string; header_pg2?: boolean; manual_scale_a?: number; manual_scale_b?: number }) => {
+  impose: async (subjectId: number, params?: { cols?: number; rows?: number; margin_mm?: number; gap_mm?: number; page_margin_cm?: number; split_mode?: string; header_pg2?: boolean; manual_scale_a?: number; manual_scale_b?: number; scale_a?: number; scale_b?: number }) => {
     const { data: subj } = await supabase.from('subjects').select('*').eq('id', subjectId).single();
     if (!subj?.docx_path) throw new Error('No DOCX built yet');
     try {
@@ -317,6 +330,8 @@ export const imagesApi = {
       if (params?.header_pg2) qs.set('header_pg2', 'true')
       if (params?.manual_scale_a) qs.set('manual_scale_a', String(params.manual_scale_a))
       if (params?.manual_scale_b) qs.set('manual_scale_b', String(params.manual_scale_b))
+      if (params?.scale_a) qs.set('scale_a', String(params.scale_a))
+      if (params?.scale_b) qs.set('scale_b', String(params.scale_b))
       const q = qs.toString()
       const result = await backendPost(`/api/images/by-subject/${subjectId}/impose${q ? '?' + q : ''}`);
       return { data: { message: 'Imposition complete', file_path: result.file_path || result.imposed_path || '', previews: result.previews || [] } };
@@ -638,7 +653,7 @@ export const adminApi = {
     await supabase.from('teacher_assignments').delete().eq('id', id);
   },
   createTeacher: async (fields: { username: string; email: string; password: string; full_name: string; role: string; school_id?: number | null }) => {
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error } = await supabase.auth.signUp({
       email: fields.email,
       password: fields.password,
       options: {
@@ -651,9 +666,17 @@ export const adminApi = {
       },
     });
     if (error) throw error;
-    // Wait briefly for the trigger to create the profile
+    // Wait briefly for the trigger to create the profile, but then upsert to guarantee auth_id is set
     await new Promise(r => setTimeout(r, 1000));
-    const { data } = await supabase.from('users').select('*').eq('email', fields.email).single();
+    const { data, error: upsertError } = await supabase.from('users').upsert({
+      auth_id: authData.user?.id,
+      email: fields.email,
+      username: fields.username,
+      full_name: fields.full_name,
+      role: fields.role || 'teacher',
+      school_id: fields.school_id,
+    }, { onConflict: 'email' }).select().single();
+    if (upsertError) throw upsertError;
     return { data: mapUser(data) };
   },
   deleteTeacher: async (id: number) => {
@@ -722,5 +745,85 @@ export const notificationsApi = {
         (payload) => onNew(payload.new as Notification),
       )
       .subscribe();
+  },
+};
+
+// ─── Downloads ──────────────────────────────────────────────────────
+
+export const downloadsApi = {
+  list: async (teacherId: number): Promise<SubjectDownload[]> => {
+    const { data, error } = await supabase
+      .from('subject_downloads')
+      .select(`
+        *,
+        subjects (
+          name,
+          imposed_pdf_path,
+          docx_path,
+          term,
+          exam_type,
+          classes (
+            name
+          )
+        )
+      `)
+      .eq('teacher_id', teacherId)
+      .order('released_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      subject_id: row.subject_id,
+      teacher_id: row.teacher_id,
+      status: row.status,
+      released_at: row.released_at,
+      downloaded_at: row.downloaded_at,
+      subject_name: row.subjects?.name,
+      class_name: row.subjects?.classes?.name,
+      imposed_pdf_path: row.subjects?.imposed_pdf_path,
+      docx_path: row.subjects?.docx_path,
+      term: row.subjects?.term,
+      exam_type: row.subjects?.exam_type,
+    }));
+  },
+
+  markDownloaded: async (downloadId: number): Promise<void> => {
+    const { error } = await supabase
+      .from('subject_downloads')
+      .update({
+        status: 'downloaded',
+        downloaded_at: new Date().toISOString(),
+      })
+      .eq('id', downloadId);
+    if (error) throw error;
+  },
+
+  getNewCount: async (teacherId: number): Promise<number> => {
+    const { count, error } = await supabase
+      .from('subject_downloads')
+      .select('*', { count: 'exact', head: true })
+      .eq('teacher_id', teacherId)
+      .eq('status', 'new');
+    if (error) return 0;
+    return count ?? 0;
+  },
+
+  getPdfUrl: async (imposedPdfPath: string): Promise<string> => {
+    const { data, error } = await supabase
+      .storage
+      .from('generated')
+      .createSignedUrl(imposedPdfPath, 3600);
+
+    if (error || !data?.signedUrl) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .storage
+        .from('uploads')
+        .createSignedUrl(imposedPdfPath, 3600);
+      if (fallbackError || !fallback?.signedUrl)
+        throw new Error('Could not generate download URL');
+      return fallback.signedUrl;
+    }
+    return data.signedUrl;
   },
 };

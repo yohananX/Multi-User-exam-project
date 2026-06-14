@@ -484,6 +484,8 @@ def process_exam(
     header_pg2=False,
     manual_scale_a=0,
     manual_scale_b=0,
+    scale_a=100,
+    scale_b=100,
 ):
     doc = Document(docx_path)
     paragraphs = doc.paragraphs
@@ -517,8 +519,19 @@ def process_exam(
         tmp_b = tempfile.mktemp(suffix=".docx")
         build_compact_docx(paragraphs, rng_b, cw_cm, ch_cm, page_margin_cm, tmp_b)
 
-    sa = manual_scale_a if manual_scale_a > 0 else find_best_font_scale(tmp_a)
-    sb = manual_scale_b if manual_scale_b > 0 else (find_best_font_scale(tmp_b) if rng_b else 1.0)
+    if manual_scale_a > 0:
+        sa = manual_scale_a
+    else:
+        auto_sa = find_best_font_scale(tmp_a)
+        sa = auto_sa * (scale_a / 100.0)
+
+    if manual_scale_b > 0:
+        sb = manual_scale_b
+    elif rng_b:
+        auto_sb = find_best_font_scale(tmp_b)
+        sb = auto_sb * (scale_b / 100.0)
+    else:
+        sb = 1.0
 
     pdf_a = render_section(paragraphs, rng_a, cw_cm, ch_cm, page_margin_cm, sa)
     pdfs = [pdf_a]

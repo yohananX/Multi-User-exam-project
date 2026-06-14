@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Upload,
   FolderOpen,
+  Download,
   MessageSquare,
   ChevronDown,
   ChevronRight,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { dashboardApi, messagesApi } from '@/api/endpoints'
+import { dashboardApi, messagesApi, downloadsApi } from '@/api/endpoints'
 
 interface NavItem {
   label: string
@@ -35,6 +36,7 @@ const teacherNav: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Upload Exam', icon: Upload, href: '/upload' },
   { label: 'My Uploads', icon: FolderOpen, href: '/uploads' },
+  { label: 'Downloads', icon: Download, href: '/downloads' },
 ]
 
 const adminNav: NavItem[] = [
@@ -68,6 +70,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const [structure, setStructure] = useState<any[]>([])
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set())
   const [unreadCount, setUnreadCount] = useState(0)
+  const [newDownloads, setNewDownloads] = useState(0)
 
   useEffect(() => {
     if (!isTeacher) {
@@ -87,6 +90,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     const unsub = messagesApi.subscribe(user?.auth_id || '', () => fetchUnread())
     return () => { unsub.unsubscribe() }
   }, [user?.auth_id])
+
+  useEffect(() => {
+    if (!isTeacher || !user?.id) return
+    downloadsApi.getNewCount(user.id).then(setNewDownloads).catch(() => {})
+  }, [isTeacher, user?.id, location.pathname])
 
   const toggleClass = (id: number) => {
     setExpandedClasses(prev => {
@@ -130,7 +138,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             )}
           >
             <item.icon className="w-4 h-4 flex-shrink-0" />
-            <span>{item.label}</span>
+            <span className="flex-1">{item.label}</span>
+            {item.href === '/downloads' && newDownloads > 0 && (
+              <span className="text-[11px] font-semibold text-accent-foreground bg-accent rounded-full min-w-[18px] h-[18px] flex items-center justify-center">
+                {newDownloads > 99 ? '99+' : newDownloads}
+              </span>
+            )}
           </Link>
         ))}
 

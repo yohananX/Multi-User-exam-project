@@ -139,9 +139,14 @@ def storage_ensure_bucket():
 def storage_upload(storage_path: str, data: bytes, content_type: str = "application/octet-stream"):
     """Upload a file to Supabase Storage. Uses PUT with upsert so it works for new and existing files."""
     _rate_limit()
-    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}") + "?upsert=true"
+    url = _storage(f"object/{STORAGE_BUCKET}/{storage_path.lstrip('/')}")
+    headers = {
+        **_storage_headers,
+        "Content-Type": content_type,
+        "x-upsert": "true"
+    }
     with httpx.Client(timeout=120.0) as client:
-        r = client.put(url, headers={**_storage_headers, "Content-Type": content_type}, content=data)
+        r = client.put(url, headers=headers, content=data)
         r.raise_for_status()
         return storage_path
 

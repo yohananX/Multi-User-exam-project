@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   UploadCloud, Image, X, CheckCircle, AlertCircle,
 } from 'lucide-react'
@@ -43,6 +43,7 @@ function CircularProgress({ pct, size = 20 }: { pct: number; size?: number }) {
 
 export default function UploadPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const addMoreRef = useRef<HTMLInputElement>(null)
@@ -62,17 +63,17 @@ export default function UploadPage() {
   const [error, setError] = useState('')
   const [removing, setRemoving] = useState<Set<number>>(new Set())
 
-  const authUserId = user?.auth_id
-
   useEffect(() => {
-    if (!authUserId) return
+    const teacherId = user?.id
+    if (!teacherId) return
+    setForm({ classId: null, subjectId: null })
     const fetchAssignments = async () => {
       setLoadingAssignments(true)
       try {
         const { data, error } = await supabase
           .from('teacher_assignments')
           .select('*, classes(id, name), subjects(id, name)')
-          .eq('auth_id', authUserId)
+          .eq('teacher_id', teacherId)
         if (error) throw error
         setAssignments(data || [])
       } catch {
@@ -82,7 +83,8 @@ export default function UploadPage() {
       }
     }
     fetchAssignments()
-  }, [authUserId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, location])
 
   const availableClasses = assignments.reduce<{ id: number; name: string }[]>((acc, a) => {
     if (a.classes && !acc.find(c => c.id === a.classes.id)) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, Eye, Download, Trash2, Search,
-  ChevronDown, ArrowUpDown, Loader2, Clock,
+  ChevronDown, ChevronLeft, ChevronRight, ArrowUpDown, Loader2, Clock,
   CheckCircle, AlertCircle, RefreshCw,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -34,15 +34,20 @@ const statusIcon: Record<string, React.ElementType> = {
   rejected: AlertCircle,
 }
 
+const PAGE_SIZE = 20
+
 export default function MyUploadsPage() {
   const navigate = useNavigate()
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [imageUrls, setImageUrls] = useState<Record<number, string | null>>({})
   const [releasedSubjects, setReleasedSubjects] = useState<Record<number, boolean>>({})
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const pageSize = PAGE_SIZE
 
   const fetchData = async () => {
     setLoading(true)
@@ -50,11 +55,21 @@ export default function MyUploadsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      const from = page * pageSize
+      const to = from + pageSize - 1
+
+      const { count } = await supabase
+        .from('images')
+        .select('*', { count: 'exact', head: true })
+        .eq('uploaded_by', user.id)
+      setTotalCount(count ?? 0)
+
       const { data } = await supabase
         .from('images')
         .select('*, subjects(name), classes(name)')
         .eq('uploaded_by', user.id)
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       setSubmissions(data || [])
 
@@ -87,7 +102,7 @@ export default function MyUploadsPage() {
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { fetchData() }, [page])
 
   const filtered = submissions.filter(s => {
     const matchesSearch = search === '' ||
@@ -167,7 +182,7 @@ export default function MyUploadsPage() {
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           ) : filtered.length > 0 ? (
-            <div className="overflow-x-auto">
+            <><div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
@@ -176,6 +191,7 @@ export default function MyUploadsPage() {
                     <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Class</th>
                     <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Status</th>
                     <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Date</th>
+                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3 whitespace-nowrap">Rejection Reason</th>
                     <th className="text-right text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Actions</th>
                   </tr>
                 </thead>
@@ -220,6 +236,16 @@ export default function MyUploadsPage() {
                       <td className="px-4 py-3 text-sm text-muted-foreground">
                         {new Date(s.created_at).toLocaleDateString()}
                       </td>
+                      <td className="px-4 py-3 text-sm max-w-[200px]">
+                        {s.rejection_reason ? (
+                          <span className="text-status-rejected truncate block" title={s.rejection_reason}>
+                            <AlertCircle className="w-3 h-3 inline mr-1 -mt-0.5" />
+                            {s.rejection_reason}
+                          </span>
+                        ) : (
+                          <span className="text-text-tertiary">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           {releasedSubjects[s.subject_id] && (
@@ -258,7 +284,44 @@ export default function MyUploadsPage() {
                 </tbody>
               </table>
             </div>
-          ) : (
+            {totalCount > pageSize && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalCount)} of {totalCount}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-xs border border-border hover:bg-muted/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: Math.ceil(totalCount / pageSize) }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setPage(i)}
+                      className={cn(
+                        'w-8 h-8 rounded-lg text-xs font-medium transition-colors',
+                        page === i
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-border hover:bg-muted/30',
+                      )}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize) - 1, p + 1))}
+                    disabled={page >= Math.ceil(totalCount / pageSize) - 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-xs border border-border hover:bg-muted/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>) : (
             <div className="py-16 text-center">
               <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground mb-1">No uploads found</p>

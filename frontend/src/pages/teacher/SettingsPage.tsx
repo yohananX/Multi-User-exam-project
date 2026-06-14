@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -44,6 +44,7 @@ const StrengthBar: React.FC<{ password: string }> = ({ password }) => {
 export default function SettingsPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const isTeacher = user?.role === 'teacher'
 
   // ── Profile state ──
@@ -85,7 +86,8 @@ export default function SettingsPage() {
         setAssignments(data || [])
         setLoadingAssignments(false)
       }, () => setLoadingAssignments(false))
-  }, [user?.id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, location])
 
   // ── Profile save ──
   const handleSaveProfile = async () => {
