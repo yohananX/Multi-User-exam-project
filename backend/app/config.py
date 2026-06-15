@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     output_dir: str = "storage/outputs"
 
     gemini_api_key: Optional[str] = None
+    openrouter_api_key: Optional[str] = None
+    openrouter_model: str = "openai/gpt-4o-mini"
     supabase_url: Optional[str] = None
     supabase_anon_key: Optional[str] = None
     supabase_service_role_key: Optional[str] = None

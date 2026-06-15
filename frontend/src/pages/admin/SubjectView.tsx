@@ -31,9 +31,9 @@ async function getSignedUrl(path: string | null): Promise<string | null> {
 const DEFAULT_IMPOSE_PARAMS = {
   cols: 3,
   rows: 2,
-  margin_mm: 4,
-  gap_mm: 3,
-  page_margin_cm: 0.4,
+  margin_mm: 2.5,
+  gap_mm: 2,
+  page_margin_cm: 0.25,
   split_mode: 'Auto',
   header_pg2: false,
   scale_a: 100,

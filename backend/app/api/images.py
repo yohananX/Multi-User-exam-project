@@ -435,9 +435,9 @@ def run_ocr(
     if not images:
         raise HTTPException(status_code=400, detail="No images for this subject")
 
-    resolved_key = api_key.strip() or settings.gemini_api_key or ""
+    resolved_key = api_key.strip() or settings.openrouter_api_key or settings.gemini_api_key or ""
     if not resolved_key:
-        raise HTTPException(status_code=400, detail="Gemini API key required")
+        raise HTTPException(status_code=400, detail="No API key configured (set OPENROUTER_API_KEY or GEMINI_API_KEY in .env)")
 
     tmp_files = []
     try:
@@ -582,9 +582,9 @@ def impose_exam(
     subject_id: int,
     cols: int = 3,
     rows: int = 2,
-    margin_mm: float = 4,
-    gap_mm: float = 3,
-    page_margin_cm: float = 0.4,
+    margin_mm: float = 2.5,
+    gap_mm: float = 2,
+    page_margin_cm: float = 0.25,
     split_mode: str = "Auto",
     header_pg2: bool = False,
     manual_scale_a: float = 0,

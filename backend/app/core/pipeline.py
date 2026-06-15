@@ -56,8 +56,8 @@ Example:
 8. Return ONLY the formatted text. No explanations, no greetings, no extra commentary."""
 
 
-def ocr_images(images: list[str], api_key: str, subject: str, class_name: str,
-               instructions: str = "", model_name: str = "gemini-2.5-flash") -> str:
+def ocr_images_gemini(images: list[str], api_key: str, subject: str, class_name: str,
+                      instructions: str = "", model_name: str = "gemini-2.5-flash") -> str:
     """Send images to Gemini, return formatted OCR text."""
     from google import genai
     prompt = OCR_PROMPT_TEMPLATE.format(
@@ -71,6 +71,54 @@ def ocr_images(images: list[str], api_key: str, subject: str, class_name: str,
         contents.append(img)
     response = client.models.generate_content(model=model_name, contents=contents)
     return response.text
+
+
+def ocr_images_openrouter(images: list[str], api_key: str, subject: str, class_name: str,
+                          instructions: str = "", model: str = "openai/gpt-4o-mini") -> str:
+    """Send images to OpenRouter, return formatted OCR text."""
+    import httpx
+    import base64
+    prompt = OCR_PROMPT_TEMPLATE.format(
+        subject=subject, class_name=class_name,
+        instructions=instructions or "Answer Section A and any TWO questions from Section B.",
+    )
+    content: list[dict] = [{"type": "text", "text": prompt}]
+    for img_path in images:
+        with open(img_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        ext = os.path.splitext(img_path)[1].lower()
+        mime = "image/png" if ext == ".png" else "image/jpeg"
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:{mime};base64,{b64}"},
+        })
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 8192,
+    }
+    with httpx.Client(timeout=120.0) as client:
+        r = client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/exam-platform",
+                "X-Title": "Scribe Exam Platform",
+            },
+            json=body,
+        )
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
+
+
+def ocr_images(images: list[str], api_key: str, subject: str, class_name: str,
+               instructions: str = "", model_name: str = "gemini-2.5-flash") -> str:
+    """Dispatch to Gemini or OpenRouter based on API key pattern."""
+    from app.config import settings
+    if api_key == settings.openrouter_api_key or api_key.startswith("sk-or-"):
+        return ocr_images_openrouter(images, api_key, subject, class_name, instructions, model_name)
+    return ocr_images_gemini(images, api_key, subject, class_name, instructions, model_name)
 
 
 def ocr_text_to_docx(text: str, subject: str, class_name: str, output_path: str) -> str:
@@ -343,25 +391,39 @@ def docx_page_count(docx_path):
     return 99
 
 
-def find_best_font_scale(docx_path):
-    lo, hi = 0.35, 1.0
-    best = lo
+def estimate_font_scale(docx_path, target_pages=1, max_target_pages=None, min_scale=0.35):
+    """Fast font scale estimation — renders once, calculates scale via formula.
+    Uses at most 2 LibreOffice calls instead of 9+ with the old binary search.
+    If max_target_pages is set and scale would be very small, tries larger page count.
+    """
     pages = docx_page_count(docx_path)
-    if pages <= 1:
+    if pages <= target_pages:
         return 1.0
-    for _ in range(8):
-        mid = (lo + hi) / 2
-        tmp = tempfile.mktemp(suffix=".docx")
-        shutil.copy(docx_path, tmp)
-        modify_docx_font_sizes(tmp, mid, tmp)
-        p = docx_page_count(tmp)
-        os.unlink(tmp)
-        if p <= 1:
-            best = mid
-            lo = mid
-        else:
-            hi = mid
-    return best
+
+    # Relationship: pages ≈ 1 / scale^1.5 for wrapped reflowing text
+    scale = (target_pages / pages) ** (1.0 / 1.5)
+
+    # Smart up-scaling: if scale is too small and we're allowed more pages, use them
+    if max_target_pages and scale < 0.5 and max_target_pages > target_pages:
+        scale = (max_target_pages / pages) ** (1.0 / 1.5)
+
+    scale = max(min_scale, min(1.0, scale))
+
+    # Verify with one refinement iteration
+    tmp = tempfile.mktemp(suffix=".docx")
+    shutil.copy(docx_path, tmp)
+    modify_docx_font_sizes(tmp, scale, tmp)
+    new_pages = docx_page_count(tmp)
+    os.unlink(tmp)
+
+    if new_pages == target_pages:
+        return scale
+    if new_pages > target_pages:
+        scale *= (target_pages / new_pages) ** 0.5
+    else:
+        scale *= (target_pages / max(1, new_pages)) ** 0.5
+
+    return max(min_scale, min(1.0, scale))
 
 
 def render_section(paragraphs, ranges, page_w_cm, page_h_cm, margin_cm, font_scale):
@@ -374,13 +436,34 @@ def render_section(paragraphs, ranges, page_w_cm, page_h_cm, margin_cm, font_sca
     return tmp_pdf
 
 
+def pdf_page_to_image(pdf_path: str, page_num: int, dpi: int = 300) -> Image.Image:
+    """Render a single PDF page to a PIL Image using PyMuPDF (no subprocess)."""
+    import fitz
+    doc = fitz.open(pdf_path)
+    page = doc.load_page(page_num - 1)
+    mat = fitz.Matrix(dpi / 72, dpi / 72)
+    pix = page.get_pixmap(matrix=mat)
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    doc.close()
+    return img
+
+
+def pdf_page_count_fitz(pdf_path: str) -> int:
+    """Count PDF pages using PyMuPDF (no subprocess)."""
+    import fitz
+    doc = fitz.open(pdf_path)
+    n = doc.page_count
+    doc.close()
+    return n
+
+
 def impose_grid_pages(
     input_pdfs,
     output_pdf,
     cols=3,
     rows=2,
-    margin_mm=4,
-    gap_mm=3,
+    margin_mm=2.5,
+    gap_mm=2,
     cut_marks=True,
     fill_mode=True,
     labels=None,
@@ -395,32 +478,14 @@ def impose_grid_pages(
     output_page_num = 0
 
     for src_idx, pdf_path in enumerate(input_pdfs):
-        pinfo = subprocess.run(["pdfinfo", pdf_path], capture_output=True, text=True, timeout=10)
-        src_pages = 1
-        for line in pinfo.stdout.split("\n"):
-            if "Pages" in line:
-                src_pages = int(line.split(":")[1].strip())
-                break
+        src_pages = pdf_page_count_fitz(pdf_path)
 
         for src_pg in range(1, src_pages + 1):
             if output_page_num > 0:
                 c.showPage()
             output_page_num += 1
 
-            tmpdir = tempfile.mkdtemp(prefix="impose_")
-            prefix = os.path.join(tmpdir, "p")
-            subprocess.run(
-                ["pdftoppm", "-png", "-r", "300", "-f", str(src_pg), "-l", str(src_pg), pdf_path, prefix],
-                capture_output=True,
-                check=True,
-            )
-            img_files = sorted(glob.glob(f"{prefix}*.png"))
-            if not img_files:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-                continue
-
-            img_path = img_files[0]
-            img = Image.open(img_path)
+            img = pdf_page_to_image(pdf_path, src_pg, 300)
             scale_val = max(cell_w / img.size[0], cell_h / img.size[1]) if fill_mode else min(
                 cell_w / img.size[0], cell_h / img.size[1]
             )
@@ -452,11 +517,11 @@ def impose_grid_pages(
                     p = c.beginPath()
                     p.rect(cx, cy, cell_w, cell_h)
                     c.clipPath(p, stroke=0)
-                    c.drawImage(img_path, x, y, width=disp_w, height=disp_h)
+                    c.drawImage(img, x, y, width=disp_w, height=disp_h)
                     c.restoreState()
                 else:
                     c.drawImage(
-                        img_path, x, y, width=disp_w, height=disp_h, preserveAspectRatio=True
+                        img, x, y, width=disp_w, height=disp_h, preserveAspectRatio=True
                     )
 
                 if labels and idx == 0:
@@ -466,8 +531,6 @@ def impose_grid_pages(
                     c.setFont("Helvetica", 6)
                     c.setFillColorRGB(0.5, 0.5, 0.5)
                     c.drawString(cx + 2, cy + cell_h - 10, label)
-
-            shutil.rmtree(tmpdir, ignore_errors=True)
 
     c.save()
     return output_pdf
@@ -497,6 +560,12 @@ def process_exam(
                 sec_a = i
                 break
 
+    # Smart target pages: auto-split forces 1 page per section,
+    # "None" allows up to 2 pages so text stays readable
+    target_a = 1
+    target_b = 1 if sec_b is not None else None
+    max_a = None if sec_b is not None else 2
+
     pw, ph = rl_landscape(A4)
     mg = margin_mm * mm
     gp = gap_mm * mm
@@ -522,13 +591,13 @@ def process_exam(
     if manual_scale_a > 0:
         sa = manual_scale_a
     else:
-        auto_sa = find_best_font_scale(tmp_a)
+        auto_sa = estimate_font_scale(tmp_a, target_pages=target_a, max_target_pages=max_a)
         sa = auto_sa * (scale_a / 100.0)
 
     if manual_scale_b > 0:
         sb = manual_scale_b
     elif rng_b:
-        auto_sb = find_best_font_scale(tmp_b)
+        auto_sb = estimate_font_scale(tmp_b, target_pages=target_b)
         sb = auto_sb * (scale_b / 100.0)
     else:
         sb = 1.0
