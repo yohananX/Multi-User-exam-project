@@ -375,65 +375,70 @@ def docx_to_pdf(docx_path, output_pdf, timeout=120):
     raise RuntimeError("LibreOffice produced no PDF output")
 
 
-def docx_page_count(docx_path):
-    tmp_pdf = tempfile.mktemp(suffix=".pdf")
-    try:
-        docx_to_pdf(docx_path, tmp_pdf)
-        result = subprocess.run(["pdfinfo", tmp_pdf], capture_output=True, text=True, timeout=10)
-        for line in result.stdout.split("\n"):
-            if "Pages" in line:
-                return int(line.split(":")[1].strip())
-    except Exception:
-        return 99
-    finally:
-        if os.path.exists(tmp_pdf):
-            os.unlink(tmp_pdf)
-    return 99
-
-
-def estimate_font_scale(docx_path, target_pages=1, max_target_pages=None, min_scale=0.35):
-    """Fast font scale estimation — renders once, calculates scale via formula.
-    Uses at most 2 LibreOffice calls instead of 9+ with the old binary search.
-    If max_target_pages is set and scale would be very small, tries larger page count.
+def estimate_font_scale_and_render(
+    docx_path: str,
+    paragraphs,
+    para_ranges: list[tuple[int, int]],
+    page_w_cm: float,
+    page_h_cm: float,
+    margin_cm: float,
+    target_pages: int = 1,
+    max_target_pages: int | None = None,
+    min_scale: float = 0.40,
+) -> tuple[float, str]:
     """
-    pages = docx_page_count(docx_path)
+    Render section DOCX once at scale=1.0, count pages, compute needed scale,
+    apply it, render once more only if needed. Returns (scale_used, pdf_path).
+
+    If max_target_pages is set and scale would be below 0.5, targets the larger
+    page count instead — keeps font readable when content is only slightly long.
+
+    Total LibreOffice calls: 1 if content already fits, 2 if scaling needed.
+    Caller owns the returned pdf_path and must delete it when done.
+    """
+    tmp_docx_v1 = tempfile.mktemp(suffix=".docx")
+    build_compact_docx(paragraphs, para_ranges, page_w_cm, page_h_cm, margin_cm, tmp_docx_v1)
+
+    tmp_pdf_v1 = tempfile.mktemp(suffix=".pdf")
+    docx_to_pdf(tmp_docx_v1, tmp_pdf_v1)
+    os.unlink(tmp_docx_v1)
+
+    pages = pdf_page_count_fitz(tmp_pdf_v1)
+
     if pages <= target_pages:
-        return 1.0
+        return 1.0, tmp_pdf_v1
 
-    # Relationship: pages ≈ 1 / scale^1.5 for wrapped reflowing text
-    scale = (target_pages / pages) ** (1.0 / 1.5)
+    scale = (target_pages / pages) ** (2.0 / 3.0)
 
-    # Smart up-scaling: if scale is too small and we're allowed more pages, use them
     if max_target_pages and scale < 0.5 and max_target_pages > target_pages:
-        scale = (max_target_pages / pages) ** (1.0 / 1.5)
+        scale = (max_target_pages / pages) ** (2.0 / 3.0)
 
     scale = max(min_scale, min(1.0, scale))
 
-    # Verify with one refinement iteration
-    tmp = tempfile.mktemp(suffix=".docx")
-    shutil.copy(docx_path, tmp)
-    modify_docx_font_sizes(tmp, scale, tmp)
-    new_pages = docx_page_count(tmp)
-    os.unlink(tmp)
+    os.unlink(tmp_pdf_v1)
 
-    if new_pages == target_pages:
-        return scale
-    if new_pages > target_pages:
-        scale *= (target_pages / new_pages) ** 0.5
-    else:
-        scale *= (target_pages / max(1, new_pages)) ** 0.5
+    tmp_docx_v2 = tempfile.mktemp(suffix=".docx")
+    build_compact_docx(paragraphs, para_ranges, page_w_cm, page_h_cm, margin_cm, tmp_docx_v2)
+    modify_docx_font_sizes(tmp_docx_v2, scale, tmp_docx_v2)
 
-    return max(min_scale, min(1.0, scale))
+    tmp_pdf_v2 = tempfile.mktemp(suffix=".pdf")
+    docx_to_pdf(tmp_docx_v2, tmp_pdf_v2)
+    os.unlink(tmp_docx_v2)
 
+    actual_pages = pdf_page_count_fitz(tmp_pdf_v2)
+    if actual_pages > target_pages:
+        scale = max(min_scale, scale * 0.90)
+        if actual_pages > target_pages + 1:
+            os.unlink(tmp_pdf_v2)
+            tmp_docx_v3 = tempfile.mktemp(suffix=".docx")
+            build_compact_docx(paragraphs, para_ranges, page_w_cm, page_h_cm, margin_cm, tmp_docx_v3)
+            modify_docx_font_sizes(tmp_docx_v3, scale, tmp_docx_v3)
+            tmp_pdf_v3 = tempfile.mktemp(suffix=".pdf")
+            docx_to_pdf(tmp_docx_v3, tmp_pdf_v3)
+            os.unlink(tmp_docx_v3)
+            return scale, tmp_pdf_v3
 
-def render_section(paragraphs, ranges, page_w_cm, page_h_cm, margin_cm, font_scale):
-    tmp_docx = tempfile.mktemp(suffix=".docx")
-    build_compact_docx(paragraphs, ranges, page_w_cm, page_h_cm, margin_cm, tmp_docx)
-    modify_docx_font_sizes(tmp_docx, font_scale, tmp_docx)
-    tmp_pdf = tempfile.mktemp(suffix=".pdf")
-    docx_to_pdf(tmp_docx, tmp_pdf)
-    os.unlink(tmp_docx)
-    return tmp_pdf
+    return scale, tmp_pdf_v2
 
 
 def pdf_page_to_image(pdf_path: str, page_num: int, dpi: int = 300) -> Image.Image:
@@ -485,7 +490,10 @@ def impose_grid_pages(
                 c.showPage()
             output_page_num += 1
 
-            img = pdf_page_to_image(pdf_path, src_pg, 300)
+            img = pdf_page_to_image(pdf_path, src_pg, 200)
+            tmp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            img.save(tmp_img, format="PNG")
+            tmp_img.close()
             scale_val = max(cell_w / img.size[0], cell_h / img.size[1]) if fill_mode else min(
                 cell_w / img.size[0], cell_h / img.size[1]
             )
@@ -517,11 +525,11 @@ def impose_grid_pages(
                     p = c.beginPath()
                     p.rect(cx, cy, cell_w, cell_h)
                     c.clipPath(p, stroke=0)
-                    c.drawImage(img, x, y, width=disp_w, height=disp_h)
+                    c.drawImage(tmp_img.name, x, y, width=disp_w, height=disp_h)
                     c.restoreState()
                 else:
                     c.drawImage(
-                        img, x, y, width=disp_w, height=disp_h, preserveAspectRatio=True
+                        tmp_img.name, x, y, width=disp_w, height=disp_h, preserveAspectRatio=True
                     )
 
                 if labels and idx == 0:
@@ -532,39 +540,47 @@ def impose_grid_pages(
                     c.setFillColorRGB(0.5, 0.5, 0.5)
                     c.drawString(cx + 2, cy + cell_h - 10, label)
 
+            os.unlink(tmp_img.name)
+
     c.save()
     return output_pdf
 
 
 def process_exam(
-    docx_path,
-    cols=3,
-    rows=2,
-    margin_mm=4,
-    gap_mm=3,
-    page_margin_cm=0.4,
-    split_mode="Auto",
-    header_pg2=False,
-    manual_scale_a=0,
-    manual_scale_b=0,
-    scale_a=100,
-    scale_b=100,
-):
+    docx_path: str,
+    cols: int = 3,
+    rows: int = 2,
+    margin_mm: float = 2.5,
+    gap_mm: float = 2.0,
+    page_margin_cm: float = 0.25,
+    split_mode: str = "Auto",
+    header_pg2: bool = False,
+    manual_scale_a: float = 0,
+    manual_scale_b: float = 0,
+    scale_a: int = 100,
+    scale_b: int = 100,
+) -> str:
+    """
+    DOCX → section PDFs → imposed grid PDF.
+
+    estimate_font_scale_and_render() returns the PDF directly,
+    so we never call docx_to_pdf() more than twice total (once per section).
+
+    manual_scale_a / manual_scale_b: if > 0, use as direct font scale factor.
+    scale_a / scale_b: percentage applied on top of auto scale (100 = no change).
+    """
     doc = Document(docx_path)
     paragraphs = doc.paragraphs
-    sec_b = find_section_boundary(paragraphs) if split_mode == "Auto" else None
-    sec_a = None
-    if sec_b is not None:
-        for i, p in enumerate(paragraphs):
-            if re.match(r"(?i)^section\s+a", p.text.strip()):
-                sec_a = i
-                break
 
-    # Smart target pages: auto-split forces 1 page per section,
-    # "None" allows up to 2 pages so text stays readable
-    target_a = 1
-    target_b = 1 if sec_b is not None else None
-    max_a = None if sec_b is not None else 2
+    sec_b = None
+    sec_a = None
+    if split_mode == "Auto":
+        for i, p in enumerate(paragraphs):
+            t = p.text.strip()
+            if re.match(r"(?i)^section\s+a", t) and sec_a is None:
+                sec_a = i
+            elif re.match(r"(?i)^section\s+b", t) and sec_b is None:
+                sec_b = i
 
     pw, ph = rl_landscape(A4)
     mg = margin_mm * mm
@@ -574,50 +590,115 @@ def process_exam(
     cw_cm = cw / mm * 0.1
     ch_cm = ch / mm * 0.1
 
-    if sec_b is not None:
-        rng_a = [(0, sec_a), (sec_a, sec_b)]
-        rng_b = [(sec_b, len(paragraphs))] if not header_pg2 else [(0, sec_a), (sec_b, len(paragraphs))]
-    else:
-        rng_a = [(0, len(paragraphs))]
-        rng_b = None
+    pdf_a = None
+    pdf_b = None
 
-    tmp_a = tempfile.mktemp(suffix=".docx")
-    build_compact_docx(paragraphs, rng_a, cw_cm, ch_cm, page_margin_cm, tmp_a)
+    try:
+        if sec_b is not None:
+            rng_a = [(0, sec_a), (sec_a, sec_b)]
+            rng_b = [(sec_b, len(paragraphs))] if not header_pg2 else [(0, sec_a), (sec_b, len(paragraphs))]
 
-    if rng_b:
-        tmp_b = tempfile.mktemp(suffix=".docx")
-        build_compact_docx(paragraphs, rng_b, cw_cm, ch_cm, page_margin_cm, tmp_b)
+            if manual_scale_a > 0:
+                tmp_d = tempfile.mktemp(suffix=".docx")
+                build_compact_docx(paragraphs, rng_a, cw_cm, ch_cm, page_margin_cm, tmp_d)
+                modify_docx_font_sizes(tmp_d, manual_scale_a * (scale_a / 100), tmp_d)
+                pdf_a = tempfile.mktemp(suffix=".pdf")
+                docx_to_pdf(tmp_d, pdf_a)
+                os.unlink(tmp_d)
+            else:
+                auto_sa, pdf_a = estimate_font_scale_and_render(
+                    docx_path, paragraphs, rng_a,
+                    cw_cm, ch_cm, page_margin_cm,
+                    target_pages=1, max_target_pages=2,
+                )
+                if scale_a != 100:
+                    adj = auto_sa * (scale_a / 100.0)
+                    adj = max(0.35, min(5.0, adj))
+                    if abs(adj - auto_sa) > 0.03:
+                        os.unlink(pdf_a)
+                        tmp_d = tempfile.mktemp(suffix=".docx")
+                        build_compact_docx(paragraphs, rng_a, cw_cm, ch_cm, page_margin_cm, tmp_d)
+                        modify_docx_font_sizes(tmp_d, adj, tmp_d)
+                        pdf_a = tempfile.mktemp(suffix=".pdf")
+                        docx_to_pdf(tmp_d, pdf_a)
+                        os.unlink(tmp_d)
 
-    if manual_scale_a > 0:
-        sa = manual_scale_a
-    else:
-        auto_sa = estimate_font_scale(tmp_a, target_pages=target_a, max_target_pages=max_a)
-        sa = auto_sa * (scale_a / 100.0)
+            if manual_scale_b > 0:
+                tmp_d = tempfile.mktemp(suffix=".docx")
+                build_compact_docx(paragraphs, rng_b, cw_cm, ch_cm, page_margin_cm, tmp_d)
+                modify_docx_font_sizes(tmp_d, manual_scale_b * (scale_b / 100), tmp_d)
+                pdf_b = tempfile.mktemp(suffix=".pdf")
+                docx_to_pdf(tmp_d, pdf_b)
+                os.unlink(tmp_d)
+            else:
+                auto_sb, pdf_b = estimate_font_scale_and_render(
+                    docx_path, paragraphs, rng_b,
+                    cw_cm, ch_cm, page_margin_cm,
+                    target_pages=1, max_target_pages=2,
+                )
+                if scale_b != 100:
+                    adj = auto_sb * (scale_b / 100.0)
+                    adj = max(0.35, min(5.0, adj))
+                    if abs(adj - auto_sb) > 0.03:
+                        os.unlink(pdf_b)
+                        tmp_d = tempfile.mktemp(suffix=".docx")
+                        build_compact_docx(paragraphs, rng_b, cw_cm, ch_cm, page_margin_cm, tmp_d)
+                        modify_docx_font_sizes(tmp_d, adj, tmp_d)
+                        pdf_b = tempfile.mktemp(suffix=".pdf")
+                        docx_to_pdf(tmp_d, pdf_b)
+                        os.unlink(tmp_d)
 
-    if manual_scale_b > 0:
-        sb = manual_scale_b
-    elif rng_b:
-        auto_sb = estimate_font_scale(tmp_b, target_pages=target_b)
-        sb = auto_sb * (scale_b / 100.0)
-    else:
-        sb = 1.0
+            section_pdfs = [pdf_a, pdf_b]
+            labels = ["Section A", "Section B"]
+        else:
+            rng_full = [(0, len(paragraphs))]
 
-    pdf_a = render_section(paragraphs, rng_a, cw_cm, ch_cm, page_margin_cm, sa)
-    pdfs = [pdf_a]
-    if rng_b:
-        pdf_b = render_section(paragraphs, rng_b, cw_cm, ch_cm, page_margin_cm, sb)
-        pdfs.append(pdf_b)
+            if manual_scale_a > 0:
+                tmp_d = tempfile.mktemp(suffix=".docx")
+                build_compact_docx(paragraphs, rng_full, cw_cm, ch_cm, page_margin_cm, tmp_d)
+                modify_docx_font_sizes(tmp_d, manual_scale_a * (scale_a / 100), tmp_d)
+                pdf_a = tempfile.mktemp(suffix=".pdf")
+                docx_to_pdf(tmp_d, pdf_a)
+                os.unlink(tmp_d)
+            else:
+                auto_sa, pdf_a = estimate_font_scale_and_render(
+                    docx_path, paragraphs, rng_full,
+                    cw_cm, ch_cm, page_margin_cm,
+                    target_pages=1, max_target_pages=2, min_scale=0.35,
+                )
+                if scale_a != 100:
+                    adj = auto_sa * (scale_a / 100.0)
+                    adj = max(0.35, min(5.0, adj))
+                    if abs(adj - auto_sa) > 0.03:
+                        os.unlink(pdf_a)
+                        tmp_d = tempfile.mktemp(suffix=".docx")
+                        build_compact_docx(paragraphs, rng_full, cw_cm, ch_cm, page_margin_cm, tmp_d)
+                        modify_docx_font_sizes(tmp_d, adj, tmp_d)
+                        pdf_a = tempfile.mktemp(suffix=".pdf")
+                        docx_to_pdf(tmp_d, pdf_a)
+                        os.unlink(tmp_d)
 
-    output_pdf = tempfile.mktemp(suffix=".pdf")
-    impose_grid_pages(pdfs, output_pdf, cols, rows, margin_mm, gap_mm, cut_marks=True, fill_mode=True, labels=["Section A", "Section B"] if rng_b else None)
+            section_pdfs = [pdf_a]
+            labels = ["Exam"]
 
-    for f in pdfs:
-        if os.path.exists(f):
-            os.unlink(f)
-    if os.path.exists(tmp_a):
-        os.unlink(tmp_a)
+        output_pdf = tempfile.mktemp(suffix=".pdf")
+        impose_grid_pages(
+            section_pdfs, output_pdf,
+            cols=cols, rows=rows,
+            margin_mm=margin_mm, gap_mm=gap_mm,
+            cut_marks=True,
+            fill_mode=False,
+            labels=labels,
+        )
+        return output_pdf
 
-    return output_pdf
+    finally:
+        for f in [pdf_a, pdf_b]:
+            if f and os.path.exists(f):
+                try:
+                    os.unlink(f)
+                except Exception:
+                    pass
 
 
 def image_to_pdf(image_path: str, output_pdf: str) -> str:

@@ -13,5 +13,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8000',
     },
+    hmr: {
+      timeout: 120000,
+      overlay: false,
+    },
   },
 })
