@@ -521,12 +521,19 @@ export default function TeacherDashboard() {
                           <p className="text-[14px] text-text-primary truncate">{s.subject_name}</p>
                           <p className="text-[13px] text-text-tertiary truncate">{s.class_name}</p>
                         </div>
-                        <span className={cn(
-                          'rounded-full text-[11px] font-medium px-2 py-0.5 flex-shrink-0',
-                          getStatusStyle(s.status),
-                        )}>
-                          {statusConfig[s.status]?.label || s.status}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {s.released && s.status === 'completed' && (
+                            <span className="text-[10px] font-semibold text-status-completed bg-status-completed-bg rounded-full px-2 py-0.5">
+                              Download
+                            </span>
+                          )}
+                          <span className={cn(
+                            'rounded-full text-[11px] font-medium px-2 py-0.5',
+                            getStatusStyle(s.status),
+                          )}>
+                            {statusConfig[s.status]?.label || s.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}

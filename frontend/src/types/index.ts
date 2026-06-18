@@ -33,6 +33,10 @@ export interface Subject {
   docx_preview_paths: string[] | null
   impose_preview_paths: string[] | null
   rejection_reason: string | null
+  released: boolean
+  released_at: string | null
+  term: string | null
+  exam_type: string | null
   created_at?: string
 }
 

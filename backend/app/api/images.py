@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import base64
 import uuid
@@ -593,31 +594,43 @@ def impose_exam(
     scale_b: int = 100,
     current_user: CurrentUser = Depends(require_admin),
 ):
-    from app.core.pipeline import process_exam, generate_pdf_previews
+    from app.core.pipeline import process_exam, impose_from_text, generate_pdf_previews
 
     subj = select("subjects", filters={"id": f"eq.{subject_id}"}, single=True)
     if not subj:
         raise HTTPException(status_code=404, detail="Subject not found")
+
+    ocr_text = subj.get("ocr_text", "") or ""
     storage_path = subj.get("docx_path")
-    if not storage_path:
-        raise HTTPException(status_code=400, detail="No DOCX found. Build it first.")
 
     tmp_docx = None
     tmp_files = []
     try:
-        tmp_docx = _temp_download(storage_path)
-        tmp_files.append(tmp_docx)
+        # Prefer text-based pipeline (no LibreOffice, no DOCX) if OCR text exists
+        if ocr_text.strip():
+            result_pdf = tempfile.mktemp(suffix=".pdf")
+            impose_from_text(
+                ocr_text, result_pdf,
+                cols=int(cols), rows=int(rows),
+                margin_mm=float(margin_mm), gap_mm=float(gap_mm),
+            )
+            tmp_files.append(result_pdf)
+        elif storage_path:
+            tmp_docx = _temp_download(storage_path)
+            tmp_files.append(tmp_docx)
 
-        result_pdf = process_exam(
-            tmp_docx,
-            cols=int(cols), rows=int(rows),
-            margin_mm=float(margin_mm), gap_mm=float(gap_mm),
-            page_margin_cm=float(page_margin_cm),
-            split_mode=split_mode, header_pg2=bool(header_pg2),
-            manual_scale_a=float(manual_scale_a), manual_scale_b=float(manual_scale_b),
-            scale_a=scale_a, scale_b=scale_b,
-        )
-        tmp_files.append(result_pdf)
+            result_pdf = process_exam(
+                tmp_docx,
+                cols=int(cols), rows=int(rows),
+                margin_mm=float(margin_mm), gap_mm=float(gap_mm),
+                page_margin_cm=float(page_margin_cm),
+                split_mode=split_mode, header_pg2=bool(header_pg2),
+                manual_scale_a=float(manual_scale_a), manual_scale_b=float(manual_scale_b),
+                scale_a=scale_a, scale_b=scale_b,
+            )
+            tmp_files.append(result_pdf)
+        else:
+            raise HTTPException(status_code=400, detail="No OCR text or DOCX found. Run OCR or build DOCX first.")
 
         imposed_storage_path = f"generated/subject_{subject_id}/imposed.pdf"
         try:

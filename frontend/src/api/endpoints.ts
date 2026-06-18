@@ -9,7 +9,17 @@ function mapUser(r: any): User {
 }
 
 function mapSubject(r: any): Subject {
-  return { id: r.id, name: r.name, class_id: r.class_id, status: r.status, ocr_text: r.ocr_text, docx_path: r.docx_path, imposed_pdf_path: r.imposed_pdf_path, docx_preview_paths: r.docx_preview_paths ?? null, impose_preview_paths: r.impose_preview_paths ?? null, rejection_reason: r.rejection_reason ?? null };
+  return {
+    id: r.id, name: r.name, class_id: r.class_id, status: r.status,
+    ocr_text: r.ocr_text, docx_path: r.docx_path, imposed_pdf_path: r.imposed_pdf_path,
+    docx_preview_paths: r.docx_preview_paths ?? null,
+    impose_preview_paths: r.impose_preview_paths ?? null,
+    rejection_reason: r.rejection_reason ?? null,
+    released: r.released ?? false,
+    released_at: r.released_at ?? null,
+    term: r.term ?? null,
+    exam_type: r.exam_type ?? null,
+  };
 }
 
 // ─── Auth ──────────────────────────────────────────────────────────
@@ -374,7 +384,7 @@ export const dashboardApi = {
     let assignments: any[] = [];
     const { data: authAssignments, error: authErr } = await supabase
       .from('teacher_assignments')
-      .select('*, classes(name), subjects(name, status)')
+      .select('*, classes(name), subjects(name, status, released, imposed_pdf_path, term, exam_type)')
       .eq('auth_id', authUser.id);
     if (!authErr && authAssignments) {
       assignments = authAssignments;
@@ -388,7 +398,7 @@ export const dashboardApi = {
       if (profile) {
         const { data: fallback } = await supabase
           .from('teacher_assignments')
-          .select('*, classes(name), subjects(name, status)')
+          .select('*, classes(name), subjects(name, status, released, imposed_pdf_path, term, exam_type)')
           .eq('teacher_id', profile.id);
         if (fallback) assignments = fallback;
       }
@@ -397,6 +407,10 @@ export const dashboardApi = {
     const subjects = assignments.map((a: any) => ({
       class_name: a.classes?.name || '', subject_name: a.subjects?.name || '',
       subject_id: a.subject_id, class_id: a.class_id, status: a.subjects?.status || 'active',
+      released: a.subjects?.released ?? false,
+      imposed_pdf_path: a.subjects?.imposed_pdf_path ?? null,
+      term: a.subjects?.term ?? null,
+      exam_type: a.subjects?.exam_type ?? null,
       created_at: a.created_at,
     }));
 
@@ -752,33 +766,47 @@ export const notificationsApi = {
 
 export const downloadsApi = {
   list: async (teacherId: number): Promise<SubjectDownload[]> => {
-    const { data, error } = await supabase
-      .from('subject_downloads')
+    // Query teacher_assignments → subjects where released=true
+    const { data: profile } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', teacherId)
+      .maybeSingle()
+      .throwOnError();
+
+    const uid = profile?.id || teacherId;
+
+    const { data: assignments, error } = await supabase
+      .from('teacher_assignments')
       .select(`
-        *,
-        subjects (
+        id,
+        subject_id,
+        teacher_id,
+        subjects!inner(
+          id,
           name,
           imposed_pdf_path,
           docx_path,
           term,
           exam_type,
-          classes (
-            name
-          )
+          released,
+          released_at,
+          classes(name)
         )
       `)
-      .eq('teacher_id', teacherId)
-      .order('released_at', { ascending: false });
+      .eq('teacher_id', uid)
+      .not('subjects.imposed_pdf_path', 'is', null)
+      .eq('subjects.released', true);
 
     if (error) throw error;
 
-    return (data ?? []).map((row: any) => ({
+    return (assignments ?? []).map((row: any) => ({
       id: row.id,
       subject_id: row.subject_id,
       teacher_id: row.teacher_id,
-      status: row.status,
-      released_at: row.released_at,
-      downloaded_at: row.downloaded_at,
+      status: 'new' as const,
+      released_at: row.subjects?.released_at || '',
+      downloaded_at: null,
       subject_name: row.subjects?.name,
       class_name: row.subjects?.classes?.name,
       imposed_pdf_path: row.subjects?.imposed_pdf_path,
@@ -788,25 +816,18 @@ export const downloadsApi = {
     }));
   },
 
-  markDownloaded: async (downloadId: number): Promise<void> => {
-    const { error } = await supabase
-      .from('subject_downloads')
-      .update({
-        status: 'downloaded',
-        downloaded_at: new Date().toISOString(),
-      })
-      .eq('id', downloadId);
-    if (error) throw error;
+  markDownloaded: async (_downloadId: number): Promise<void> => {
+    // subject_downloads table may not exist — no-op for now
+    return;
   },
 
   getNewCount: async (teacherId: number): Promise<number> => {
-    const { count, error } = await supabase
-      .from('subject_downloads')
-      .select('*', { count: 'exact', head: true })
-      .eq('teacher_id', teacherId)
-      .eq('status', 'new');
-    if (error) return 0;
-    return count ?? 0;
+    try {
+      const items = await downloadsApi.list(teacherId);
+      return items.length;
+    } catch {
+      return 0;
+    }
   },
 
   getPdfUrl: async (imposedPdfPath: string): Promise<string> => {

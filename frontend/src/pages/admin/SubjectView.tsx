@@ -234,6 +234,20 @@ export default function AdminSubjectView() {
     }
   }
 
+  const handleRelease = async () => {
+    if (!subjectId) return
+    setActionLoading('release')
+    try {
+      await subjectsApi.release(Number(subjectId))
+      setSubject((prev: any) => ({ ...prev, released: true, released_at: new Date().toISOString() }))
+      showFeedback('success', 'Released to teachers')
+    } catch (e: any) {
+      showFeedback('error', e?.message || 'Release failed')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleImposedDownload = async () => {
     if (!subjectId) return
     try {
@@ -636,6 +650,38 @@ export default function AdminSubjectView() {
               </div>
             )}
           </div>
+
+          {/* Release to Teachers */}
+          {subject?.status === 'completed' && subject?.imposed_pdf_path && (
+            <div className="bg-surface rounded-[16px] shadow-card p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <SendHorizontal className="w-4 h-4 text-accent" />
+                    <span className="text-[14px] font-medium text-text-primary">Release to Teachers</span>
+                    {subject?.released && (
+                      <span className="text-[11px] text-status-completed bg-status-completed-bg rounded-full px-2 py-0.5">Released</span>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-text-tertiary mt-0.5">
+                    {subject?.released
+                      ? `Released ${subject?.released_at ? new Date(subject.released_at).toLocaleDateString() : ''}`
+                      : 'Teachers will see this exam as available for download'}
+                  </p>
+                </div>
+                {!subject?.released && (
+                  <button
+                    onClick={handleRelease}
+                    disabled={actionLoading === 'release'}
+                    className="h-9 px-4 rounded-[10px] text-[13px] font-medium bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+                  >
+                    {actionLoading === 'release' ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
+                    {actionLoading === 'release' ? 'Releasing...' : 'Release'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right — Image Gallery */}
