@@ -92,4 +92,4 @@ export {
   CardFooter,
   cardVariants,
 }
-export type { CardProps }
+
