@@ -1,19 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  FileText, Eye, Download, Trash2, Search,
-  ChevronDown, ChevronLeft, ChevronRight, ArrowUpDown, Loader2, Clock,
-  CheckCircle, AlertCircle, RefreshCw,
+  FileText, Eye, Download, Trash2, Search, X,
+  ChevronLeft, ChevronRight, Loader2, Clock,
+  CheckCircle, AlertCircle, RefreshCw, UploadCloud,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { subjectsApi } from '@/api/endpoints'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import {
-  Card, CardContent, CardHeader, CardTitle, CardDescription,
-} from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 type Submission = any
@@ -34,7 +30,34 @@ const statusIcon: Record<string, React.ElementType> = {
   rejected: AlertCircle,
 }
 
+const statusColors: Record<string, string> = {
+  pending: 'bg-[hsl(var(--status-pending-bg))] text-[hsl(var(--status-pending))] border-[hsl(var(--status-pending)/0.25)]',
+  processing: 'bg-[hsl(var(--status-processing-bg))] text-[hsl(var(--status-processing))] border-[hsl(var(--status-processing)/0.25)]',
+  completed: 'bg-[hsl(var(--status-completed-bg))] text-[hsl(var(--status-completed))] border-[hsl(var(--status-completed)/0.25)]',
+  rejected: 'bg-[hsl(var(--status-rejected-bg))] text-[hsl(var(--status-rejected))] border-[hsl(var(--status-rejected)/0.25)]',
+}
+
 const PAGE_SIZE = 20
+
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4 animate-pulse">
+      <div className="w-10 h-10 rounded-lg skeleton flex-shrink-0" />
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="h-4 w-48 skeleton rounded-md" />
+        <div className="h-3 w-32 skeleton rounded-md" />
+      </div>
+      <div className="hidden md:block h-4 w-24 skeleton rounded-md" />
+      <div className="hidden md:block h-4 w-24 skeleton rounded-md" />
+      <div className="h-6 w-20 skeleton rounded-full" />
+      <div className="hidden md:block h-4 w-24 skeleton rounded-md" />
+      <div className="flex gap-1">
+        <div className="w-8 h-8 skeleton rounded-lg" />
+        <div className="w-8 h-8 skeleton rounded-lg" />
+      </div>
+    </div>
+  )
+}
 
 export default function MyUploadsPage() {
   const navigate = useNavigate()
@@ -131,212 +154,274 @@ export default function MyUploadsPage() {
     }
   }
 
+  const totalPages = Math.ceil(totalCount / pageSize)
+
   return (
-    <div className="p-6 space-y-6 max-w-6xl animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between animate-fade-in">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">My Uploads</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-[28px] font-bold tracking-tight text-text-primary">My Uploads</h1>
+          <p className="text-[15px] text-text-secondary mt-1">
             View and manage your exam submissions.
           </p>
         </div>
-        <Button onClick={() => navigate('/upload')}>
-          <FileText className="w-4 h-4 mr-2" /> Upload New
+        <Button
+          onClick={() => navigate('/upload')}
+          size="lg"
+          className="rounded-[14px] h-11 px-5 text-[15px] font-medium bg-accent text-accent-foreground hover:brightness-95 active:scale-[0.98] shadow-sm"
+        >
+          <UploadCloud className="w-[18px] h-[18px] mr-2" />
+          Upload New
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
+      {/* ── Filters Bar ── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-slide-up">
+        {/* Search */}
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-text-tertiary pointer-events-none" />
+          <input
+            type="text"
             placeholder="Search uploads..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-8 h-9 text-sm"
+            className="w-full h-11 pl-10 pr-10 rounded-[14px] border border-border bg-surface text-[15px] text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:shadow-[0_0_0_3px_hsla(211,100%,50%,0.12)]"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary transition-colors"
+            >
+              <X className="w-[16px] h-[16px]" />
+            </button>
+          )}
         </div>
-        <div className="flex gap-1">
+
+        {/* Status pills */}
+        <div className="flex flex-wrap gap-1.5">
           {['all', 'pending', 'processing', 'completed', 'rejected'].map(status => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
               className={cn(
-                'text-xs px-3 py-1.5 rounded-lg border transition-all capitalize',
+                'h-9 px-4 rounded-full text-[13px] font-medium transition-all duration-200',
                 statusFilter === status
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground',
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'bg-transparent text-text-secondary border border-border hover:border-text-tertiary hover:text-text-primary',
               )}
             >
-              {status === 'all' ? 'All' : status}
+              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
-      <Card className="border-border/50">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : filtered.length > 0 ? (
-            <><div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">File</th>
-                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Subject</th>
-                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Class</th>
-                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Status</th>
-                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Date</th>
-                    <th className="text-left text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3 whitespace-nowrap">Rejection Reason</th>
-                    <th className="text-right text-2xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filtered.map((s, i) => (
-                    <tr
-                      key={s.id}
-                      className="hover:bg-muted/30 transition-colors animate-slide-up"
-                      style={{ animationDelay: `${i * 30}ms` }}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {imageUrls[s.id] ? (
-                              <img
-                                src={imageUrls[s.id]!}
-                                className="w-full h-full object-cover"
-                                alt=""
-                              />
-                            ) : (
-                              <FileText className="w-4 h-4 text-primary" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate max-w-[200px]">{s.title}</p>
-                            <p className="text-2xs text-muted-foreground">#{String(s.number).padStart(3, '0')}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{s.subjects?.name || '—'}</td>
-                      <td className="px-4 py-3 text-sm">{s.classes?.name || '—'}</td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          variant={statusVariant[s.status] || 'pending'}
-                          className="capitalize"
+      {/* ── Content ── */}
+      <div className="glass-card overflow-hidden">
+        {loading ? (
+          /* ── Loading State ── */
+          <div className="divide-y divide-border/50">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
+        ) : filtered.length > 0 ? (
+          <>
+            {/* ── Card List ── */}
+            <div className="divide-y divide-border/40">
+              {filtered.map((s, i) => {
+                const StatusIcon = statusIcon[s.status]
+                const ready = s.status === 'completed' && releasedSubjects[s.subject_id]
+                return (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      'flex items-center gap-4 px-5 py-4 transition-all duration-200',
+                      'hover:bg-[hsl(var(--background-secondary)/0.5)]',
+                    )}
+                    style={{
+                      animation: `slideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both`,
+                      animationDelay: `${i * 30}ms`,
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center flex-shrink-0 overflow-hidden ring-1 ring-border/30">
+                      {imageUrls[s.id] ? (
+                        <img
+                          src={imageUrls[s.id]!}
+                          className="w-full h-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        <FileText className="w-5 h-5 text-accent" />
+                      )}
+                    </div>
+
+                    {/* Filename + Number */}
+                    <div className="min-w-0 flex-1 hidden sm:block">
+                      <p className="text-[15px] font-medium text-text-primary truncate max-w-[260px]">
+                        {s.title}
+                      </p>
+                      <p className="text-[12px] text-text-tertiary">
+                        #{String(s.number).padStart(3, '0')}
+                      </p>
+                    </div>
+
+                    {/* Subject - desktop */}
+                    <div className="hidden md:block min-w-[100px]">
+                      <p className="text-[14px] text-text-secondary truncate">{s.subjects?.name || '—'}</p>
+                    </div>
+
+                    {/* Class - desktop */}
+                    <div className="hidden lg:block min-w-[80px]">
+                      <p className="text-[14px] text-text-secondary truncate">{s.classes?.name || '—'}</p>
+                    </div>
+
+                    {/* Status badge */}
+                    <div className="flex-shrink-0">
+                      <span className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border',
+                        statusColors[ready ? 'completed' : s.status] || 'bg-background-secondary text-text-secondary border-border',
+                      )}>
+                        {StatusIcon && <StatusIcon className="w-3 h-3" />}
+                        {ready ? 'Ready' : s.status}
+                      </span>
+                    </div>
+
+                    {/* Date - desktop */}
+                    <div className="hidden md:block min-w-[80px] flex-shrink-0">
+                      <p className="text-[13px] text-text-tertiary whitespace-nowrap">
+                        {new Date(s.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+
+                    {/* Rejection reason - desktop */}
+                    {s.rejection_reason && (
+                      <div className="hidden lg:block min-w-[120px] max-w-[160px] flex-shrink-0">
+                        <p className="text-[12px] text-status-rejected truncate flex items-center gap-1" title={s.rejection_reason}>
+                          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{s.rejection_reason}</span>
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+                      {releasedSubjects[s.subject_id] && (
+                        <button
+                          onClick={() => handleDownloadPdf(s.subject_id)}
+                          title="Download print-ready PDF"
+                          disabled={downloadingId === s.subject_id}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-[hsl(var(--status-completed))] hover:bg-[hsl(var(--status-completed-bg))] transition-all duration-150 disabled:pointer-events-none active:scale-90"
                         >
-                          {s.status === 'completed' && releasedSubjects[s.subject_id]
-                            ? 'Ready'
-                            : s.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {new Date(s.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm max-w-[200px]">
-                        {s.rejection_reason ? (
-                          <span className="text-status-rejected truncate block" title={s.rejection_reason}>
-                            <AlertCircle className="w-3 h-3 inline mr-1 -mt-0.5" />
-                            {s.rejection_reason}
-                          </span>
-                        ) : (
-                          <span className="text-text-tertiary">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {releasedSubjects[s.subject_id] && (
-                            <button
-                              onClick={() => handleDownloadPdf(s.subject_id)}
-                              title="Download print-ready PDF"
-                              disabled={downloadingId === s.subject_id}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[hsl(var(--status-completed))] hover:bg-[hsl(var(--status-completed-bg))] transition-colors duration-120 disabled:pointer-events-none"
-                            >
-                              {downloadingId === s.subject_id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Download className="w-4 h-4" />
-                              )}
-                            </button>
+                          {downloadingId === s.subject_id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-[18px] h-[18px]" />
                           )}
-                          {imageUrls[s.id] && (
-                            <Button variant="ghost" size="icon-sm" asChild>
-                              <a href={imageUrls[s.id]!} target="_blank" rel="noopener noreferrer">
-                                <Eye className="w-3.5 h-3.5" />
-                              </a>
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleDelete(s.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </button>
+                      )}
+                      {imageUrls[s.id] && (
+                        <a
+                          href={imageUrls[s.id]!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-text-secondary hover:bg-background-secondary transition-all duration-150 active:scale-90"
+                        >
+                          <Eye className="w-[18px] h-[18px]" />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleDelete(s.id)}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-text-tertiary hover:text-status-rejected hover:bg-[hsl(var(--status-rejected-bg))] transition-all duration-150 active:scale-90"
+                      >
+                        <Trash2 className="w-[18px] h-[18px]" />
+                      </button>
+                    </div>
+
+                    {/* Mobile: filename below */}
+                    <div className="sm:hidden min-w-0 flex-1">
+                      <p className="text-[14px] font-medium text-text-primary truncate max-w-[160px]">
+                        {s.title}
+                      </p>
+                      <p className="text-[11px] text-text-tertiary">
+                        #{String(s.number).padStart(3, '0')}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
+
+            {/* ── Pagination ── */}
             {totalCount > pageSize && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalCount)} of {totalCount}
+              <div className="flex items-center justify-between px-5 py-4 border-t border-border/40 bg-background-secondary/30">
+                <p className="text-[13px] text-text-tertiary">
+                  Showing <span className="font-medium text-text-secondary">{page * pageSize + 1}</span>
+                  {' '}–{' '}
+                  <span className="font-medium text-text-secondary">{Math.min((page + 1) * pageSize, totalCount)}</span>
+                  {' '}of{' '}
+                  <span className="font-medium text-text-secondary">{totalCount}</span>
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setPage(p => Math.max(0, p - 1))}
                     disabled={page === 0}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-xs border border-border hover:bg-muted/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl text-text-secondary border border-border/60 hover:bg-background-secondary hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-[18px] h-[18px]" />
                   </button>
-                  {Array.from({ length: Math.ceil(totalCount / pageSize) }, (_, i) => (
+                  {Array.from({ length: totalPages }, (_, i) => (
                     <button
                       key={i}
                       onClick={() => setPage(i)}
                       className={cn(
-                        'w-8 h-8 rounded-lg text-xs font-medium transition-colors',
+                        'w-9 h-9 rounded-xl text-[13px] font-medium transition-all duration-150',
                         page === i
-                          ? 'bg-primary text-primary-foreground'
-                          : 'border border-border hover:bg-muted/30',
+                          ? 'bg-accent text-accent-foreground shadow-sm'
+                          : 'border border-border/60 text-text-secondary hover:bg-background-secondary hover:border-border',
                       )}
                     >
                       {i + 1}
                     </button>
                   ))}
                   <button
-                    onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize) - 1, p + 1))}
-                    disabled={page >= Math.ceil(totalCount / pageSize) - 1}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-xs border border-border hover:bg-muted/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl text-text-secondary border border-border/60 hover:bg-background-secondary hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-[18px] h-[18px]" />
                   </button>
                 </div>
               </div>
             )}
-          </>) : (
-            <div className="py-16 text-center">
-              <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground mb-1">No uploads found</p>
-              <p className="text-xs text-muted-foreground/60 mb-4">
-                {search ? 'Try different search terms or filters' : 'Upload your first exam to get started'}
-              </p>
-              {!search && (
-                <Button size="sm" onClick={() => navigate('/upload')}>
-                  Upload Exam
-                </Button>
-              )}
+          </>
+        ) : (
+          /* ── Empty State ── */
+          <div className="py-20 text-center animate-scale-in">
+            <div className="w-16 h-16 rounded-2xl bg-accent-subtle flex items-center justify-center mx-auto mb-5">
+              <FileText className="w-8 h-8 text-accent" />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="text-[17px] font-medium text-text-primary mb-1">No uploads found</p>
+            <p className="text-[14px] text-text-secondary max-w-sm mx-auto mb-6">
+              {search
+                ? 'Try different search terms or filters to find what you\'re looking for.'
+                : 'Upload your first exam to get started.'}
+            </p>
+            {!search && (
+              <Button
+                size="lg"
+                onClick={() => navigate('/upload')}
+                className="rounded-[14px] h-11 px-6 text-[15px] font-medium bg-accent text-accent-foreground hover:brightness-95"
+              >
+                <UploadCloud className="w-[18px] h-[18px] mr-2" />
+                Upload Exam
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

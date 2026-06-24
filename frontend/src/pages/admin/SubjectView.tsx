@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   Image as ImageIcon, Clock, CheckCircle, Eye, Loader2, Trash2,
-  FileText, Download, ScanText, FileDown, Grid3x3, ChevronLeft,
+  FileText, Download, ScanText, Grid3x3, ChevronLeft,
   ChevronRight, AlertCircle, Zap, Check, X, Settings2, SendHorizontal,
 } from 'lucide-react'
 import { imagesApi, subjectsApi, classesApi } from '../../api/endpoints'
@@ -18,7 +18,6 @@ const STATUS_STYLES: Record<string, string> = {
 
 const PIPELINE_STEPS = [
   { key: 'ocr', icon: ScanText, label: 'OCR Transcription' },
-  { key: 'docx', icon: FileDown, label: 'DOCX Build' },
   { key: 'impose', icon: Grid3x3, label: 'Imposition' },
 ]
 
@@ -45,22 +44,15 @@ function stepState(subject: any, step: string): 'incomplete' | 'in-progress' | '
   const status = subject.status || 'active'
 
   if (step === 'ocr') {
-    if (status === 'completed' || status === 'ocr_complete' || status === 'docx_pending' || status === 'docx_complete' || status === 'impose_pending' || subject.ocr_text) return 'complete'
+    if (subject.ocr_text || status === 'completed' || subject.imposed_pdf_path) return 'complete'
     if (status === 'ocr_pending') return 'in-progress'
     return 'incomplete'
   }
 
-  if (step === 'docx') {
-    if (status === 'completed' || status === 'docx_complete' || status === 'impose_pending' || subject.docx_path) return 'complete'
-    if (status === 'docx_pending') return 'in-progress'
-    if (status === 'ocr_complete' || status === 'ocr_pending' || subject.ocr_text) return 'incomplete'
-    return 'incomplete'
-  }
-
   if (step === 'impose') {
-    if (status === 'completed' || subject.imposed_pdf_path) return 'complete'
+    if (subject.imposed_pdf_path || status === 'completed') return 'complete'
     if (status === 'impose_pending') return 'in-progress'
-    if (subject.docx_path) return 'incomplete'
+    if (subject.ocr_text) return 'incomplete'
     return 'incomplete'
   }
 
@@ -93,9 +85,7 @@ export default function AdminSubjectView() {
   const [className, setClassName] = useState('')
   const [loading, setLoading] = useState(true)
   const [imageUrls, setImageUrls] = useState<Record<number, string | null>>({})
-  const [docxDownloadUrl, setDocxDownloadUrl] = useState<string | null>(null)
   const [imposedDownloadUrl, setImposedDownloadUrl] = useState<string | null>(null)
-  const [docxPreviews, setDocxPreviews] = useState<string[]>([])
   const [imposePreviews, setImposePreviews] = useState<string[]>([])
   const [ocrText, setOcrText] = useState('')
   const [ocrSaved, setOcrSaved] = useState(false)
@@ -106,7 +96,6 @@ export default function AdminSubjectView() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null)
   const [ocrError, setOcrError] = useState('')
-  const [docxError, setDocxError] = useState('')
   const [imposeError, setImposeError] = useState('')
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -142,15 +131,8 @@ export default function AdminSubjectView() {
       }))
       setImageUrls(urls)
 
-      if (subj?.docx_path) setDocxDownloadUrl(await getSignedUrl(subj.docx_path))
       if (subj?.imposed_pdf_path) setImposedDownloadUrl(await getSignedUrl(subj.imposed_pdf_path))
 
-      if (subj?.docx_preview_paths?.length) {
-        const signed = await Promise.all(
-          subj.docx_preview_paths.map((p: string) => getSignedUrl(p))
-        )
-        setDocxPreviews(signed.filter(Boolean) as string[])
-      }
       if (subj?.impose_preview_paths?.length) {
         const signed = await Promise.all(
           subj.impose_preview_paths.map((p: string) => getSignedUrl(p))
@@ -190,31 +172,6 @@ export default function AdminSubjectView() {
       showFeedback('success', 'OCR text saved')
     } catch (e: any) {
       showFeedback('error', e?.message || 'Save failed')
-    }
-  }
-
-  const handleBuildDocx = async () => {
-    if (!subjectId) return
-    setActionLoading('docx')
-    setDocxError('')
-    try {
-      const res = await imagesApi.buildDocx(Number(subjectId))
-      showFeedback('success', res.data.message)
-      if (res.data.previews?.length) setDocxPreviews(res.data.previews.map((b: string) => `data:image/png;base64,${b}`))
-      setTimeout(fetchData, 1000)
-    } catch (e: any) {
-      setDocxError(e?.message || 'Build failed')
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleDocxDownload = async () => {
-    if (!subjectId) return
-    try {
-      await imagesApi.downloadDocx(Number(subjectId))
-    } catch {
-      showFeedback('error', 'Failed to download DOCX')
     }
   }
 
@@ -465,55 +422,6 @@ export default function AdminSubjectView() {
             </div>
           </div>
 
-          {/* DOCX Action */}
-          <div className="bg-surface rounded-[16px] shadow-card p-5">
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <FileDown className="w-4 h-4 text-accent" />
-                  <span className="text-[14px] font-medium text-text-primary">Build DOCX</span>
-                  {docxDownloadUrl && <span className="text-[11px] text-status-completed bg-status-completed-bg rounded-full px-2 py-0.5">Ready</span>}
-                </div>
-                <p className="text-[12px] text-text-tertiary mt-0.5">Formatted Word document with Times New Roman and proper layout</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {docxDownloadUrl && (
-                  <button
-                    onClick={handleDocxDownload}
-                    className="h-9 px-4 rounded-[10px] text-[13px] font-medium bg-accent/10 text-accent hover:brightness-95 transition-all flex items-center gap-1.5"
-                  >
-                    <Download className="w-4 h-4" /> Download
-                  </button>
-                )}
-                <button
-                  onClick={handleBuildDocx}
-                  disabled={actionLoading === 'docx' || !subject?.ocr_text}
-                  className="h-9 px-4 rounded-[10px] text-[13px] font-medium bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
-                >
-                  {actionLoading === 'docx' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  {actionLoading === 'docx' ? 'Building...' : 'Build'}
-                </button>
-              </div>
-            </div>
-            {docxError && <p className="text-[12px] text-status-rejected mb-2">{docxError}</p>}
-            {docxPreviews.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-[12px] font-medium text-text-secondary">Preview</p>
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {docxPreviews.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`DOCX preview ${i + 1}`}
-                      className="h-48 rounded-[8px] border border-border shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(url, '_blank')}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Impose Action */}
           <div className="bg-surface rounded-[16px] shadow-card p-5">
             <div className="flex items-center justify-between gap-4 mb-3">
@@ -546,7 +454,7 @@ export default function AdminSubjectView() {
                 </button>
                 <button
                   onClick={handleImpose}
-                  disabled={actionLoading === 'impose' || !subject?.docx_path}
+                  disabled={actionLoading === 'impose' || !subject?.ocr_text}
                   className="h-9 px-4 rounded-[10px] text-[13px] font-medium bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
                 >
                   {actionLoading === 'impose' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}

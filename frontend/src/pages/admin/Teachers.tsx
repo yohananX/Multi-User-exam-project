@@ -278,66 +278,87 @@ export default function AdminTeachers() {
     });
   };
 
+  const avatarGradient = (name: string) => {
+    const colors = [
+      'from-accent to-purple-500',
+      'from-blue-500 to-cyan-500',
+      'from-orange-500 to-rose-500',
+      'from-emerald-500 to-teal-500',
+      'from-violet-500 to-pink-500',
+      'from-amber-500 to-orange-500',
+    ];
+    const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
+    <div className="flex items-center justify-center min-h-[320px]">
       <Loader2 className="w-6 h-6 animate-spin text-text-tertiary" />
     </div>
   );
 
   return (
-    <div className="max-w-6xl animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-7xl mx-auto px-0 animate-fade-in">
+      {/* ── Header ── */}
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-text-primary">Teachers</h1>
-          <p className="text-[15px] text-text-secondary mt-1">{teachers.length} teachers</p>
+          <h1 className="text-[32px] font-bold tracking-tight text-text-primary">Teachers</h1>
+          <p className="text-[15px] text-text-secondary mt-1.5">{teachers.length} teacher{teachers.length !== 1 ? 's' : ''} across the school</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="h-9 px-4 rounded-[10px] bg-accent text-accent-foreground text-[13px] font-medium hover:bg-accent-hover transition-colors duration-fast flex items-center gap-1.5"
+          className="h-11 px-5 rounded-xl bg-accent text-accent-foreground text-[14px] font-semibold hover:bg-accent-hover active:scale-[0.97] transition-all duration-fast flex items-center gap-2 shadow-sm hover:shadow-md"
         >
           <UserPlus className="w-4 h-4" />
           Add Teacher
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Teachers List */}
-        <div className="bg-surface rounded-[16px] shadow-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="text-[15px] font-semibold text-text-primary">
+      {/* ── Two-column layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ── Teachers List (glass card) ── */}
+        <div className="glass-card overflow-hidden animate-slide-up" style={{ animationDelay: '0ms' }}>
+          <div className="px-6 py-5 border-b border-border/60">
+            <h2 className="text-[15px] font-semibold text-text-primary flex items-center gap-2">
               All Teachers
-              <span className="ml-2 text-[12px] text-text-tertiary font-normal">{teachers.length} total</span>
+              <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-accent/10 text-accent text-[11px] font-semibold">
+                {teachers.length}
+              </span>
             </h2>
           </div>
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/40">
             {teachers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Users className="w-8 h-8 text-text-tertiary mb-2" />
-                <p className="text-[14px] text-text-secondary">No teachers yet</p>
+              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                <div className="w-14 h-14 rounded-2xl bg-background-secondary flex items-center justify-center mb-4">
+                  <Users className="w-7 h-7 text-text-tertiary" />
+                </div>
+                <p className="text-[15px] font-medium text-text-secondary">No teachers yet</p>
+                <p className="text-[13px] text-text-tertiary mt-1">Add your first teacher to get started</p>
               </div>
-            ) : teachers.map(t => (
+            ) : teachers.map((t, idx) => (
               <div
                 key={t.id}
                 onClick={() => { if (deletingId !== t.id) selectTeacher(t.id) }}
                 className={cn(
-                  'group flex items-center justify-between px-5 py-3.5 cursor-pointer transition-colors duration-150',
+                  'group flex items-center justify-between px-6 py-4 cursor-pointer transition-all duration-200 animate-fade-in',
                   selected === t.id
-                    ? 'bg-[hsl(var(--accent)/0.08)] border-l-2 border-l-accent'
-                    : 'hover:bg-background-secondary border-l-2 border-l-transparent',
+                    ? 'bg-gradient-to-r from-accent/[0.07] to-transparent border-l-[3px] border-l-accent'
+                    : 'hover:bg-background-secondary/60 border-l-[3px] border-l-transparent',
                 )}
+                style={{ animationDelay: `${idx * 30}ms` }}
               >
                 {deletingId === t.id ? (
-                  <div className="flex items-center gap-2 w-full py-0.5">
-                    <span className="text-[13px] text-text-primary">Delete {t.full_name}?</span>
+                  <div className="flex items-center gap-3 w-full py-0.5">
+                    <span className="text-[14px] text-text-primary font-medium">Delete {t.full_name}?</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteTeacher(t.id) }}
-                      className="text-[13px] text-status-rejected underline cursor-pointer bg-transparent border-none p-0"
+                      className="text-[13px] text-status-rejected underline underline-offset-2 cursor-pointer bg-transparent border-none p-0 font-medium hover:text-status-rejected/80 transition-colors"
                     >
                       Yes, delete
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeletingId(null); setDeleteError('') }}
-                      className="text-[13px] text-text-secondary cursor-pointer bg-transparent border-none p-0"
+                      className="text-[13px] text-text-secondary underline underline-offset-2 cursor-pointer bg-transparent border-none p-0 hover:text-text-primary transition-colors"
                     >
                       Cancel
                     </button>
@@ -345,21 +366,26 @@ export default function AdminTeachers() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
                       <div className={cn(
-                        'w-9 h-9 rounded-full flex items-center justify-center text-[14px] font-semibold flex-shrink-0',
-                        selected === t.id ? 'bg-accent text-accent-foreground' : 'bg-accent-subtle text-accent',
+                        'w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center text-[15px] font-bold text-white flex-shrink-0 shadow-sm',
+                        avatarGradient(t.full_name || ''),
+                        selected === t.id && 'ring-2 ring-accent/30 ring-offset-2 ring-offset-surface',
                       )}>
                         {t.full_name?.charAt(0)?.toUpperCase() || '?'}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[14px] font-medium text-text-primary truncate">{t.full_name}</p>
-                        <p className="text-[12px] text-text-tertiary truncate">@{t.username} · {t.email}</p>
+                        <p className="text-[14px] font-semibold text-text-primary truncate">{t.full_name}</p>
+                        <p className="text-[12px] text-text-tertiary truncate flex items-center gap-1.5 mt-0.5">
+                          <span>@{t.username}</span>
+                          <span className="w-1 h-1 rounded-full bg-border" />
+                          <span>{t.email}</span>
+                        </p>
                       </div>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); setDeletingId(t.id) }}
-                      className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-sm text-text-tertiary hover:text-status-rejected hover:bg-status-rejected/10 transition-colors duration-fast flex-shrink-0"
+                      className="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center rounded-lg text-text-tertiary hover:text-status-rejected hover:bg-status-rejected/10 transition-all duration-fast flex-shrink-0 -mr-1"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -370,61 +396,98 @@ export default function AdminTeachers() {
           </div>
         </div>
 
-        {/* Assignments Panel */}
-        <div className="bg-surface rounded-[16px] shadow-card overflow-hidden">
+        {/* ── Assignments Panel (glass card) ── */}
+        <div className="glass-card overflow-hidden animate-slide-up" style={{ animationDelay: '80ms' }}>
           {selected && selectedTeacher ? (
             <>
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="text-[17px] font-semibold text-text-primary">{selectedTeacher.full_name}</h2>
-                <p className="text-[13px] text-text-secondary mt-0.5">{selectedTeacher.email}</p>
+              <div className="px-6 py-5 border-b border-border/60">
+                <div className="flex items-center gap-3.5">
+                  <div className={cn(
+                    'w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center text-[15px] font-bold text-white flex-shrink-0 shadow-sm',
+                    avatarGradient(selectedTeacher.full_name || ''),
+                  )}>
+                    {selectedTeacher.full_name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-[16px] font-semibold text-text-primary truncate">{selectedTeacher.full_name}</h2>
+                    <p className="text-[13px] text-text-secondary truncate">{selectedTeacher.email}</p>
+                  </div>
+                </div>
               </div>
-              <div className="p-5 space-y-5">
+              <div className="p-6 space-y-5">
                 {loadingAssignments ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {[1, 2, 3].map(i => (
-                      <div key={i} className="h-11 rounded-[10px] bg-background-secondary animate-pulse" />
+                      <div key={i} className="h-12 rounded-xl bg-background-secondary animate-pulse" />
                     ))}
                   </div>
                 ) : assignments.length === 0 ? (
-                  <p className="text-[13px] text-text-tertiary text-center py-4">No subjects assigned yet</p>
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-background-secondary flex items-center justify-center mb-3">
+                      <Users className="w-6 h-6 text-text-tertiary" />
+                    </div>
+                    <p className="text-[14px] text-text-secondary font-medium">No subjects assigned yet</p>
+                    <p className="text-[12px] text-text-tertiary mt-1">Assign a class and subject below</p>
+                  </div>
                 ) : (
                   <div className="space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary mb-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary mb-3 flex items-center gap-2">
                       Teaching Assignments
+                      <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-background-secondary text-text-tertiary text-[10px] font-semibold">
+                        {assignments.length}
+                      </span>
                     </p>
                     {assignments.map(a => (
-                      <div key={a.id} className="flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-background-secondary">
+                      <div key={a.id} className="group flex items-center justify-between px-4 py-3 rounded-xl bg-background-secondary/80 hover:bg-background-secondary transition-all duration-200">
                         <div className="flex-1 min-w-0">
-                          <span className="text-[13px] font-medium text-text-primary">{a.class_name}</span>
-                          <span className="text-[13px] text-text-secondary">{' \u00B7 '}{a.subject_name}</span>
+                          <span className="text-[13px] font-semibold text-text-primary">{a.class_name}</span>
+                          <span className="text-[13px] text-text-tertiary ml-1.5">· {a.subject_name}</span>
                         </div>
                         <button
                           onClick={() => handleRemoveAssignment(a.id)}
-                          className="w-7 h-7 flex items-center justify-center rounded-sm text-text-tertiary hover:text-status-rejected hover:bg-status-rejected/10 transition-colors duration-fast flex-shrink-0"
+                          className="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center rounded-lg text-text-tertiary hover:text-status-rejected hover:bg-status-rejected/10 transition-all duration-fast flex-shrink-0"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-border space-y-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary">
+                <div className="pt-5 border-t border-border/60 space-y-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary flex items-center gap-2">
                     {batchMode ? 'Batch Add Assignments' : 'Add Assignment'}
+                    {!batchMode && (
+                      <button
+                        onClick={() => { setBatchMode(true); setNewSubjectId('') }}
+                        className="text-[11px] font-normal normal-case text-accent hover:text-accent-hover bg-transparent border-none p-0 cursor-pointer tracking-normal"
+                      >
+                        Switch to batch
+                      </button>
+                    )}
+                    {batchMode && (
+                      <button
+                        onClick={() => { setBatchMode(false); setSelectedSubjects(new Set()); setAvailableSubjects([]) }}
+                        className="text-[11px] font-normal normal-case text-accent hover:text-accent-hover bg-transparent border-none p-0 cursor-pointer tracking-normal"
+                      >
+                        Switch to single
+                      </button>
+                    )}
                   </p>
 
                   {duplicateError && (
-                    <p className="text-[12px] text-status-pending">{duplicateError}</p>
+                    <div className="px-4 py-2.5 rounded-xl bg-status-pending/10 border border-status-pending/20 text-[13px] text-status-pending font-medium">
+                      {duplicateError}
+                    </div>
                   )}
 
                   {!batchMode ? (
                     <>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2.5">
                         <select
                           value={newClassId}
                           onChange={e => handleClassChange(e.target.value)}
-                          className="flex-1 h-9 px-3 rounded-[10px] bg-background-secondary border border-border text-[13px] text-text-primary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast"
+                          className="flex-1 h-10 px-3.5 rounded-xl bg-background-secondary border border-border/60 text-[13px] text-text-primary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23999%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10"
                         >
                           <option value="">Select class...</option>
                           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -433,7 +496,7 @@ export default function AdminTeachers() {
                           value={newSubjectId}
                           onChange={e => setNewSubjectId(e.target.value)}
                           disabled={!newClassId || loadingSubjects}
-                          className="flex-1 h-9 px-3 rounded-[10px] bg-background-secondary border border-border text-[13px] text-text-primary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-40"
+                          className="flex-1 h-10 px-3.5 rounded-xl bg-background-secondary border border-border/60 text-[13px] text-text-primary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-40 disabled:cursor-not-allowed appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23999%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10"
                         >
                           <option value="">
                             {loadingSubjects ? 'Loading...' : 'Select subject...'}
@@ -445,31 +508,24 @@ export default function AdminTeachers() {
                         <button
                           onClick={handleAddSingle}
                           disabled={!newClassId || !newSubjectId || addingAssignment}
-                          className="h-9 px-4 rounded-[10px] bg-accent text-accent-foreground text-[13px] font-medium hover:bg-accent-hover transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                          className="h-10 px-5 rounded-xl bg-accent text-accent-foreground text-[13px] font-semibold hover:bg-accent-hover active:scale-[0.97] transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-1.5 shadow-sm"
                         >
                           {addingAssignment ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            <Plus className="w-3.5 h-3.5" />
+                            <Plus className="w-4 h-4" />
                           )}
-                          Add
+                          Assign
                         </button>
                       </div>
-                      {addError && <p className="text-[12px] text-status-rejected">{addError}</p>}
-
-                      <button
-                        onClick={() => { setBatchMode(true); setNewSubjectId('') }}
-                        className="text-[13px] text-accent hover:text-accent-hover transition-colors bg-transparent border-none p-0 cursor-pointer"
-                      >
-                        Batch add
-                      </button>
+                      {addError && <p className="text-[13px] text-status-rejected font-medium">{addError}</p>}
                     </>
                   ) : (
                     <>
                       <select
                         value={newClassId}
                         onChange={e => handleClassChange(e.target.value)}
-                        className="w-full h-9 px-3 rounded-[10px] bg-background-secondary border border-border text-[13px] text-text-primary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast"
+                        className="w-full h-10 px-3.5 rounded-xl bg-background-secondary border border-border/60 text-[13px] text-text-primary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23999%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10"
                       >
                         <option value="">Select a class...</option>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -477,18 +533,18 @@ export default function AdminTeachers() {
 
                       {newClassId && (
                         <>
-                          <div className="flex items-center justify-between">
-                            <p className="text-[12px] text-text-secondary font-medium">Subjects:</p>
+                          <div className="flex items-center justify-between bg-background-secondary/60 rounded-xl px-4 py-2.5">
+                            <p className="text-[13px] text-text-secondary font-medium">Subjects:</p>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => setSelectedSubjects(new Set(availableSubjects.map(s => s.id)))}
-                                className="text-[11px] px-2 py-1 rounded-[6px] bg-accent/10 text-accent font-medium hover:bg-accent/20 transition-colors"
+                                className="text-[11px] px-3 py-1.5 rounded-lg bg-accent/10 text-accent font-semibold hover:bg-accent/20 active:scale-95 transition-all"
                               >
                                 Select All
                               </button>
                               <button
                                 onClick={() => setSelectedSubjects(new Set())}
-                                className="text-[11px] px-2 py-1 rounded-[6px] bg-background-secondary text-text-tertiary hover:text-text-secondary transition-colors"
+                                className="text-[11px] px-3 py-1.5 rounded-lg bg-background-secondary text-text-tertiary font-medium hover:text-text-secondary hover:bg-background-tertiary active:scale-95 transition-all"
                               >
                                 None
                               </button>
@@ -498,13 +554,13 @@ export default function AdminTeachers() {
                           {loadingSubjects ? (
                             <div className="flex flex-wrap gap-2">
                               {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="h-8 w-24 rounded-[8px] bg-background-secondary animate-pulse" />
+                                <div key={i} className="h-9 w-28 rounded-xl bg-background-secondary animate-pulse" />
                               ))}
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {availableSubjects.length === 0 ? (
-                                <p className="text-[12px] text-text-tertiary py-3 text-center w-full">No subjects in this class</p>
+                                <p className="text-[13px] text-text-tertiary py-4 text-center w-full">No subjects in this class</p>
                               ) : availableSubjects.map(s => {
                                 const isAssigned = assignedSubjectIds.has(s.id);
                                 const isSelected = selectedSubjects.has(s.id);
@@ -515,10 +571,10 @@ export default function AdminTeachers() {
                                     disabled={isAssigned}
                                     onClick={() => !isAssigned && toggleSubject(s.id)}
                                     className={cn(
-                                      'h-8 px-3 rounded-[8px] text-[13px] font-medium transition-all duration-fast border',
-                                      isAssigned && 'opacity-40 cursor-not-allowed bg-background-secondary text-text-tertiary border-border',
-                                      !isAssigned && isSelected && 'bg-accent text-accent-foreground border-accent',
-                                      !isAssigned && !isSelected && 'bg-background-secondary text-text-secondary border-border hover:bg-border',
+                                      'h-9 px-3.5 rounded-xl text-[13px] font-medium transition-all duration-fast border',
+                                      isAssigned && 'opacity-40 cursor-not-allowed bg-background-secondary text-text-tertiary border-border/40',
+                                      !isAssigned && isSelected && 'bg-accent text-accent-foreground border-accent shadow-sm',
+                                      !isAssigned && !isSelected && 'bg-background-secondary text-text-secondary border-border/60 hover:bg-border/50 hover:border-accent/30',
                                     )}
                                   >
                                     {s.name}
@@ -533,9 +589,9 @@ export default function AdminTeachers() {
                             onClick={handleBatchAdd}
                             disabled={selectedSubjects.size === 0 || batchAdding}
                             className={cn(
-                              'w-full h-9 rounded-[10px] text-[13px] font-medium transition-all duration-fast flex items-center justify-center gap-1.5',
+                              'w-full h-10 rounded-xl text-[13px] font-semibold transition-all duration-fast flex items-center justify-center gap-1.5 active:scale-[0.98]',
                               selectedSubjects.size > 0 && !batchAdding
-                                ? 'bg-accent text-accent-foreground hover:bg-accent-hover'
+                                ? 'bg-accent text-accent-foreground hover:bg-accent-hover shadow-sm'
                                 : 'bg-background-secondary text-text-tertiary cursor-not-allowed',
                             )}
                           >
@@ -554,43 +610,46 @@ export default function AdminTeachers() {
                         </>
                       )}
 
-                      <button
-                        onClick={() => { setBatchMode(false); setSelectedSubjects(new Set()); setAvailableSubjects([]) }}
-                        className="text-[13px] text-accent hover:text-accent-hover transition-colors bg-transparent border-none p-0 cursor-pointer"
-                      >
-                        Single add
-                      </button>
-
-                      {addError && <p className="text-[12px] text-status-rejected">{addError}</p>}
+                      {addError && <p className="text-[13px] text-status-rejected font-medium">{addError}</p>}
                     </>
                   )}
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-              <Users className="w-10 h-10 text-text-tertiary mb-3" />
-              <p className="text-[15px] text-text-secondary">Select a teacher</p>
-              <p className="text-[12px] text-text-tertiary mt-1">Click on a teacher to manage their assignments</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center px-8">
+              <div className="w-16 h-16 rounded-2xl bg-background-secondary flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-text-tertiary" />
+              </div>
+              <p className="text-[16px] font-semibold text-text-secondary">Select a teacher</p>
+              <p className="text-[13px] text-text-tertiary mt-1.5 max-w-[220px]">Click on a teacher to manage their class assignments</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Add Teacher Modal */}
+      {/* ── Add Teacher Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-surface rounded-[20px] shadow-xl w-full max-w-sm overflow-hidden animate-scale-in">
-            <div className="flex items-center justify-between px-6 h-14 border-b border-border">
-              <h2 className="text-[17px] font-semibold text-text-primary">New Teacher</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
+          <div className="glass-dark rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-7 h-16 border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <h2 className="text-[17px] font-semibold text-text-primary">New Teacher</h2>
+                  <p className="text-[12px] text-text-tertiary">Create a teacher account</p>
+                </div>
+              </div>
               <button
                 onClick={() => { setShowForm(false); setCreateError(''); setCreateSuccess(''); setGeneratedPassword('') }}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-text-tertiary hover:bg-background-secondary transition-colors"
+                className="w-9 h-9 flex items-center justify-center rounded-xl text-text-tertiary hover:bg-background-secondary/80 hover:text-text-secondary transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleCreate} className="p-7 space-y-5">
               <div>
                 <label className="block text-[13px] font-medium text-text-secondary mb-1.5">Full Name</label>
                 <input
@@ -598,7 +657,7 @@ export default function AdminTeachers() {
                   value={form.full_name}
                   onChange={e => setForm({ ...form, full_name: e.target.value })}
                   disabled={creating}
-                  className="w-full h-10 px-3 rounded-[10px] bg-background-secondary border border-border text-[14px] text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-50"
+                  className="w-full h-11 px-4 rounded-xl bg-background-secondary/80 border border-border/60 text-[14px] text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-50"
                   required
                 />
               </div>
@@ -610,58 +669,65 @@ export default function AdminTeachers() {
                   value={form.email}
                   onChange={e => setForm({ ...form, email: e.target.value })}
                   disabled={creating}
-                  className="w-full h-10 px-3 rounded-[10px] bg-background-secondary border border-border text-[14px] text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-50"
+                  className="w-full h-11 px-4 rounded-xl bg-background-secondary/80 border border-border/60 text-[14px] text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-50"
                   required
                 />
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-text-secondary mb-1.5">Password</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2.5">
                   <input
                     type="text"
                     placeholder="Set initial password"
                     value={form.password}
                     onChange={e => { setForm({ ...form, password: e.target.value }); setGeneratedPassword('') }}
                     disabled={creating}
-                    className="flex-1 h-10 px-3 rounded-[10px] bg-background-secondary border border-border text-[14px] text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-50"
+                    className="flex-1 h-11 px-4 rounded-xl bg-background-secondary/80 border border-border/60 text-[14px] text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/10 transition-all duration-fast disabled:opacity-50"
                     required
                   />
                   <button
                     type="button"
                     onClick={handleGeneratePassword}
                     disabled={creating}
-                    className="h-10 px-3 rounded-[10px] bg-background-secondary border border-border text-[13px] text-text-secondary font-medium hover:bg-border transition-colors duration-fast disabled:opacity-50 flex items-center gap-1"
+                    className="h-11 px-4 rounded-xl bg-background-secondary/80 border border-border/60 text-[13px] text-accent font-semibold hover:bg-background-secondary hover:border-accent/30 transition-all duration-fast disabled:opacity-50 flex items-center gap-1.5 active:scale-[0.97]"
                   >
                     Generate
                   </button>
                 </div>
                 {generatedPassword && (
-                  <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-[8px] bg-background-secondary">
-                    <code className="text-[13px] text-text-primary font-mono flex-1 select-all">{generatedPassword}</code>
+                  <div className="mt-3 flex items-center gap-3 px-4 py-3 rounded-xl bg-background-secondary/80 border border-border/40">
+                    <code className="text-[14px] text-text-primary font-mono font-medium flex-1 select-all tracking-wide">{generatedPassword}</code>
                     <button
                       type="button"
                       onClick={handleCopyPassword}
-                      className="flex items-center gap-1 text-[12px] text-accent hover:text-accent-hover transition-colors bg-transparent border-none p-0 cursor-pointer"
+                      className="flex items-center gap-1.5 text-[12px] text-accent hover:text-accent-hover font-semibold transition-colors bg-transparent border-none p-0 cursor-pointer"
                     >
                       {copied ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-status-completed" />
+                        <>
+                          <CheckCircle className="w-4 h-4 text-status-completed" />
+                          <span className="text-status-completed">Copied</span>
+                        </>
                       ) : (
-                        <Clipboard className="w-3.5 h-3.5" />
+                        <>
+                          <Clipboard className="w-4 h-4" />
+                          Copy
+                        </>
                       )}
-                      {copied ? 'Copied' : 'Copy'}
                     </button>
                   </div>
                 )}
               </div>
 
               {createSuccess && (
-                <div className="flex items-center gap-1.5 text-[13px] text-status-completed">
-                  <CheckCircle className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-status-completed/10 border border-status-completed/20 text-[13px] font-medium text-status-completed">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{createSuccess}</span>
                 </div>
               )}
               {createError && (
-                <p className="text-[13px] text-status-rejected">{createError}</p>
+                <div className="px-4 py-3 rounded-xl bg-status-rejected/10 border border-status-rejected/20 text-[13px] font-medium text-status-rejected">
+                  {createError}
+                </div>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -669,16 +735,21 @@ export default function AdminTeachers() {
                   type="button"
                   onClick={() => { setShowForm(false); setCreateError(''); setCreateSuccess(''); setGeneratedPassword('') }}
                   disabled={creating}
-                  className="flex-1 h-10 rounded-[10px] bg-background-secondary text-text-secondary text-[14px] font-medium hover:bg-border transition-colors duration-fast disabled:opacity-50"
+                  className="flex-1 h-11 rounded-xl bg-background-secondary/80 text-text-secondary text-[14px] font-semibold hover:bg-background-secondary active:scale-[0.98] transition-all duration-fast disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 h-10 rounded-[10px] bg-accent text-accent-foreground text-[14px] font-medium hover:bg-accent-hover transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 h-11 rounded-xl bg-accent text-accent-foreground text-[14px] font-semibold hover:bg-accent-hover active:scale-[0.98] transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
-                  {creating ? 'Creating\u2026' : 'Create Teacher'}
+                  {creating ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </span>
+                  ) : 'Create Teacher'}
                 </button>
               </div>
             </form>

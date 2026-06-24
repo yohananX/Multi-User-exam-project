@@ -296,21 +296,7 @@ export const imagesApi = {
       await supabase.from('subjects').update({ ocr_text: ocrText }).eq('id', subjectId);
     }
   },
-  buildDocx: async (subjectId: number) => {
-    const { data: subj } = await supabase.from('subjects').select('*').eq('id', subjectId).single();
-    if (!subj?.ocr_text) throw new Error('No OCR text');
-    const { data: subjClass } = await supabase.from('subjects').select('*, classes!inner(name)').eq('id', subjectId).single();
-    try {
-      const result = await backendPost(`/api/images/by-subject/${subjectId}/build-docx`);
-      return { data: { message: 'DOCX generated', docx_path: result.docx_path, previews: result.previews || [] } };
-    } catch {
-      await supabase.from('subjects').update({ status: 'docx_pending' }).eq('id', subjectId);
-      return { data: { message: 'Queued for DOCX generation', docx_path: null, previews: [] } };
-    }
-  },
-  exportPdf: async (_subjectId: number) => {
-    return { data: { message: 'Queued', file_path: '', page_count: 0 } };
-  },
+
   delete: async (id: number) => {
     const { data: img } = await supabase.from('images').select('*').eq('id', id).single();
     if (img?.file_path) await supabase.storage.from('uploads').remove([img.file_path]);
@@ -328,7 +314,7 @@ export const imagesApi = {
   },
   impose: async (subjectId: number, params?: { cols?: number; rows?: number; margin_mm?: number; gap_mm?: number; page_margin_cm?: number; split_mode?: string; header_pg2?: boolean; manual_scale_a?: number; manual_scale_b?: number; scale_a?: number; scale_b?: number }) => {
     const { data: subj } = await supabase.from('subjects').select('*').eq('id', subjectId).single();
-    if (!subj?.docx_path) throw new Error('No DOCX built yet');
+    if (!subj?.ocr_text && !subj?.docx_path) throw new Error('No OCR text found. Run OCR first.');
     try {
       const qs = new URLSearchParams()
       if (params?.cols) qs.set('cols', String(params.cols))
@@ -357,13 +343,7 @@ export const imagesApi = {
     const { url } = await res.json();
     window.open(url, '_blank');
   },
-  downloadDocx: async (subjectId: number) => {
-    const headers = await getAuthHeaders();
-    const res = await fetch(`${BACKEND_URL}/api/images/by-subject/${subjectId}/download-docx`, { headers });
-    if (!res.ok) throw new Error('No DOCX available');
-    const { url } = await res.json();
-    window.open(url, '_blank');
-  },
+
   downloadImposed: async (subjectId: number) => {
     const headers = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/api/images/by-subject/${subjectId}/download-imposed`, { headers });
@@ -507,7 +487,6 @@ export const dashboardApi = {
 
     // Determine pipeline stage for each subject
     const needsOcr: any[] = []
-    const needsDocx: any[] = []
     const needsImpose: any[] = []
     const completedPipe: any[] = []
     let pendingImageCount = 0
@@ -528,10 +507,8 @@ export const dashboardApi = {
       }
       if (s.imposed_pdf_path) {
         completedPipe.push(item)
-      } else if (s.docx_path) {
-        needsImpose.push(item)
       } else if (s.ocr_text) {
-        needsDocx.push(item)
+        needsImpose.push(item)
       } else if (stats.total > 0) {
         needsOcr.push(item)
       }
@@ -558,7 +535,6 @@ export const dashboardApi = {
         total_users: totalUsers || 0,
         pipeline: {
           needs_ocr: needsOcr,
-          needs_docx: needsDocx,
           needs_impose: needsImpose,
           completed: completedPipe,
         },

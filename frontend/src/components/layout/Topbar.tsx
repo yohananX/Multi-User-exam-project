@@ -48,26 +48,12 @@ const NOTIF_ICON: Record<string, { icon: React.ElementType; bg: string; color: s
   new_assignment:     { icon: BookOpen,      bg: 'bg-status-pending-bg',      color: 'text-status-pending' },
 }
 
-const NOTIF_BG: Record<string, string> = {
-  new_teacher: 'bg-[hsl(262_80%_97%)]',
-  script_uploaded: 'bg-accent-subtle',
-  subject_completed: 'bg-status-completed-bg',
-  new_message: 'bg-accent-subtle',
-  new_assignment: 'bg-status-pending-bg',
-}
-
-const NOTIF_COLOR: Record<string, string> = {
-  new_teacher: 'text-[hsl(262_80%_58%)]',
-  script_uploaded: 'text-accent',
-  subject_completed: 'text-status-completed',
-  new_message: 'text-accent',
-  new_assignment: 'text-status-pending',
-}
-
 export function Topbar({ onMenuToggle }: TopbarProps) {
   const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+
+  // ─── Search ───────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)
@@ -77,8 +63,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  // ─── Notifications ────────────────────────────────────────────────
-
+  // ─── Notifications ────────────────────────────────────────────
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const bellRef = useRef<HTMLDivElement>(null)
@@ -87,6 +72,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   const currentUserId = user?.id
   const unreadCount = notifications.filter(n => !n.read).length
 
+  // ─── Fetch notifications + subscribe ───────────────────────────
   useEffect(() => {
     if (!currentUserId) return
     notificationsApi.list(currentUserId).then(setNotifications).catch(() => {})
@@ -96,12 +82,14 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     return () => { channel.unsubscribe() }
   }, [currentUserId])
 
+  // ─── Cleanup timers on unmount ─────────────────────────────────
   useEffect(() => {
     return () => {
       if (markTimerRef.current) clearTimeout(markTimerRef.current)
     }
   }, [])
 
+  // ─── Click-outside handler ─────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -115,6 +103,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // ─── Mark all read ─────────────────────────────────────────────
   const handleMarkAllRead = useCallback(async () => {
     if (!currentUserId) return
     try {
@@ -123,6 +112,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     } catch { /* ignore */ }
   }, [currentUserId])
 
+  // ─── Open notification dropdown + auto-mark-read after 2s ────
   const handleOpen = useCallback(() => {
     setOpen(v => !v)
     if (markTimerRef.current) clearTimeout(markTimerRef.current)
@@ -131,6 +121,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
     }, 2000)
   }, [handleMarkAllRead])
 
+  // ─── Page title ────────────────────────────────────────────────
   const pageTitle = useMemo(() => {
     const exact = routeTitles[location.pathname]
     if (exact) return exact
@@ -142,8 +133,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   const isAdmin = user?.role === 'super_admin' || user?.role === 'school_admin'
   const userId = user?.auth_id
 
-  // ─── Search ───────────────────────────────────────────────────────
-
+  // ─── Search logic ──────────────────────────────────────────────
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { setResults([]); setSearching(false); return }
     setSearching(true)
@@ -190,95 +180,115 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
   }
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between h-[52px] px-4 lg:px-6 border-b border-border/60 bg-surface/85 backdrop-blur-xl">
-      {/* Left */}
+    <header className="sticky top-0 z-10 flex items-center justify-between h-[52px] px-4 lg:px-6 border-b border-border/30 bg-surface/75 backdrop-blur-xl">
+      {/* ── Left: hamburger + page title ── */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuToggle}
-          className="lg:hidden w-9 h-9 flex items-center justify-center rounded-sm text-text-secondary hover:bg-background-secondary transition-colors duration-fast"
+          className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-text-secondary hover:bg-background-secondary/70 hover:text-text-primary transition-all duration-150 active:scale-90"
+          aria-label="Toggle sidebar menu"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="hidden lg:block text-[17px] font-semibold text-text-primary">
+        <h1 className="hidden lg:block text-[17px] font-semibold text-text-primary tracking-tight">
           {pageTitle}
         </h1>
       </div>
 
-      {/* Center — search bar (admin only) */}
-      {isAdmin && <div ref={searchRef} className="hidden md:block relative w-[240px]">
-        <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Search subjects, classes..."
-          value={query}
-          onChange={e => { setQuery(e.target.value); setShowResults(true) }}
-          onFocus={() => { if (results.length > 0) setShowResults(true) }}
-          onKeyDown={handleKeyDown}
-          className="w-full h-[30px] pl-8 pr-8 text-sm bg-background-secondary border border-border rounded-full text-text-primary placeholder:text-text-tertiary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)]"
-        />
-        {query && (
-          <button
-            onClick={() => { setQuery(''); setResults([]); setShowResults(false); inputRef.current?.focus() }}
-            className="absolute right-[6px] top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-text-tertiary hover:text-text-primary"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-
-        {showResults && (results.length > 0 || searching) && (
-          <div className="absolute top-full mt-1.5 left-0 right-0 bg-surface rounded-[12px] shadow-xl border border-border overflow-hidden z-50">
-            {searching ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-text-tertiary" />
-              </div>
-            ) : (
-              results.map((r, idx) => (
-                <button
-                  key={`${r._type}-${r.id}`}
-                  onClick={() => navigateToResult(r)}
-                  onMouseEnter={() => setSelectedIdx(idx)}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors duration-fast',
-                    idx === selectedIdx ? 'bg-background-secondary' : 'hover:bg-background-secondary',
-                  )}
-                >
-                  <div className={cn(
-                    'w-7 h-7 rounded-sm flex items-center justify-center flex-shrink-0',
-                    r._type === 'subject' ? 'bg-accent-subtle' : 'bg-background-tertiary',
-                  )}>
-                    {r._type === 'subject' ? (
-                      <BookOpen className="w-3.5 h-3.5 text-accent" />
-                    ) : (
-                      <FolderOpen className="w-3.5 h-3.5 text-text-secondary" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-medium text-text-primary truncate">{r.name}</p>
-                    <p className="text-[11px] text-text-tertiary capitalize">
-                      {r._type === 'subject' ? (r.class_name || 'Subject') : r._type}
-                    </p>
-                  </div>
-                </button>
-              ))
+      {/* ── Center: search (admin only) ── */}
+      {isAdmin && (
+        <div ref={searchRef} className="hidden md:block relative w-[240px]">
+          <div className="relative">
+            <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Search subjects, classes...  ⌘K"
+              value={query}
+              onChange={e => { setQuery(e.target.value); setShowResults(true) }}
+              onFocus={() => { if (results.length > 0) setShowResults(true) }}
+              onKeyDown={handleKeyDown}
+              className="w-full h-[32px] pl-8 pr-8 text-sm bg-background-secondary/50 border border-border/40 rounded-full text-text-primary placeholder:text-text-tertiary/60 outline-none transition-all duration-150 focus:border-accent/50 focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)] focus:bg-background-secondary/80"
+            />
+            {query && (
+              <button
+                onClick={() => { setQuery(''); setResults([]); setShowResults(false); inputRef.current?.focus() }}
+                className="absolute right-[6px] top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors duration-150"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
-        )}
-      </div>}
 
-      {/* Right */}
-      <div className="flex items-center gap-1">
+          {/* ── Search results dropdown (glass) ── */}
+          {showResults && (results.length > 0 || searching) && (
+            <div
+              className="absolute top-full mt-1.5 left-0 right-0 bg-surface/80 backdrop-blur-2xl rounded-2xl shadow-xl border border-border/30 overflow-hidden z-50 origin-top-right"
+              style={{ animation: 'scaleIn 150ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              {searching ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-text-tertiary" />
+                </div>
+              ) : (
+                <div className="py-1">
+                  {results.map((r, idx) => (
+                    <button
+                      key={`${r._type}-${r.id}`}
+                      onClick={() => navigateToResult(r)}
+                      onMouseEnter={() => setSelectedIdx(idx)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-100',
+                        idx === selectedIdx
+                          ? 'bg-background-secondary/80'
+                          : 'hover:bg-background-secondary/50',
+                      )}
+                    >
+                      <div className={cn(
+                        'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-150',
+                        r._type === 'subject' ? 'bg-accent-subtle/80' : 'bg-background-tertiary/80',
+                        idx === selectedIdx && r._type === 'subject' && 'bg-accent-subtle',
+                      )}>
+                        {r._type === 'subject' ? (
+                          <BookOpen className="w-3.5 h-3.5 text-accent" />
+                        ) : (
+                          <FolderOpen className="w-3.5 h-3.5 text-text-secondary" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-medium text-text-primary truncate">{r.name}</p>
+                        <p className="text-[11px] text-text-tertiary capitalize truncate">
+                          {r._type === 'subject' ? (r.class_name || 'Subject') : r._type}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Right: notifications + settings ── */}
+      <div className="flex items-center gap-0.5">
+        {/* ── Notifications bell ── */}
         <div ref={bellRef} className="relative">
           <button
             onClick={handleOpen}
-            className="relative w-9 h-9 flex items-center justify-center rounded-sm text-text-secondary hover:bg-background-secondary transition-colors duration-fast"
+            className="relative w-9 h-9 flex items-center justify-center rounded-xl text-text-secondary hover:bg-background-secondary/70 hover:text-text-primary transition-all duration-150 active:scale-90"
+            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
               <span
                 className={cn(
                   'absolute flex items-center justify-center rounded-full bg-[hsl(var(--status-rejected))] ring-2 ring-surface',
-                  unreadCount > 9 ? 'w-[18px] h-[18px] top-[3px] right-[3px]' : 'w-[7px] h-[7px] top-[6px] right-[6px]',
+                  unreadCount > 9
+                    ? 'w-[18px] h-[18px] top-[2px] right-[2px]'
+                    : 'w-[7px] h-[7px] top-[5px] right-[5px]',
+                  unreadCount <= 9 && 'animate-pulse',
                 )}
               >
                 {unreadCount > 9 && (
@@ -288,18 +298,19 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             )}
           </button>
 
+          {/* ── Notifications dropdown (glass) ── */}
           {open && (
             <div
-              className="absolute top-[calc(100%+8px)] right-0 w-[360px] max-sm:w-[calc(100vw-32px)] max-sm:max-w-[360px] bg-surface border border-border rounded-[20px] shadow-xl max-h-[480px] overflow-y-auto z-50 origin-top-right animate-scale-in"
-              style={{ animationDuration: '200ms' }}
+              className="absolute top-[calc(100%+10px)] right-0 w-[360px] max-sm:w-[calc(100vw-32px)] max-sm:max-w-[360px] bg-surface/80 backdrop-blur-2xl border border-border/20 rounded-2xl shadow-2xl max-h-[480px] overflow-y-auto z-50 origin-top-right"
+              style={{ animation: 'scaleIn 200ms cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              {/* Header */}
-              <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-12 border-b border-border bg-surface/95 backdrop-blur-sm">
+              {/* Sticky header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-12 border-b border-border/20 bg-surface/90 backdrop-blur-sm rounded-t-2xl">
                 <span className="text-[15px] font-semibold text-text-primary">Notifications</span>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllRead}
-                    className="text-[13px] font-medium text-accent hover:text-accent-hover transition-colors"
+                    className="text-[13px] font-medium text-accent hover:text-accent-hover transition-colors duration-150 active:scale-95"
                   >
                     Mark all read
                   </button>
@@ -308,7 +319,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
 
               {/* List */}
               {notifications.length > 0 ? (
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-border/10">
                   {notifications.map(n => {
                     const style = NOTIF_ICON[n.type] || NOTIF_ICON.new_message
                     const Icon = style.icon
@@ -324,14 +335,15 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                           setOpen(false)
                         }}
                         className={cn(
-                          'w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-fast',
+                          'w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all duration-150',
                           n.link ? 'cursor-pointer' : 'cursor-default',
-                          'hover:bg-background-secondary',
+                          'hover:bg-background-secondary/60',
+                          !n.read && 'bg-accent/[0.02]',
                         )}
-                        style={{ minHeight: '60px' }}
+                        style={{ minHeight: '64px' }}
                       >
                         <div className={cn(
-                          'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                          'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm ring-1 ring-white/10 dark:ring-white/5',
                           style.bg,
                         )}>
                           <Icon className={cn('w-4 h-4', style.color)} />
@@ -343,11 +355,13 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                           )}>
                             {n.title}
                           </p>
-                          <p className="text-[13px] text-text-tertiary mt-0.5 line-clamp-2">{n.body}</p>
-                          <p className="text-[12px] text-text-tertiary mt-1.5">{formatRelativeTime(n.created_at)}</p>
+                          {n.body && (
+                            <p className="text-[13px] text-text-tertiary mt-0.5 line-clamp-2">{n.body}</p>
+                          )}
+                          <p className="text-[12px] text-text-tertiary/60 mt-1.5">{formatRelativeTime(n.created_at)}</p>
                         </div>
                         {!n.read && (
-                          <span className="w-[7px] h-[7px] rounded-full bg-accent flex-shrink-0 mt-2" />
+                          <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1.5 ring-2 ring-accent/20" />
                         )}
                       </button>
                     )
@@ -355,8 +369,8 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center px-6 text-center" style={{ paddingTop: 48, paddingBottom: 48 }}>
-                  <BellOff className="w-8 h-8 text-text-tertiary mb-3" />
-                  <p className="text-[14px] text-text-secondary">You're all caught up</p>
+                  <BellOff className="w-10 h-10 text-text-tertiary/50 mb-3" />
+                  <p className="text-[14px] text-text-secondary font-medium">You're all caught up</p>
                   <p className="text-[12px] text-text-tertiary mt-1">No new notifications</p>
                 </div>
               )}
@@ -364,8 +378,13 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           )}
         </div>
 
+        {/* ── Settings gear (admin only) ── */}
         {isAdmin && (
-          <button onClick={() => navigate('/settings')} className="w-9 h-9 flex items-center justify-center rounded-sm text-text-secondary hover:bg-background-secondary transition-colors duration-fast">
+          <button
+            onClick={() => navigate('/settings')}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-text-secondary hover:bg-background-secondary/70 hover:text-text-primary transition-all duration-150 active:scale-90"
+            aria-label="Settings"
+          >
             <Settings className="w-5 h-5" />
           </button>
         )}

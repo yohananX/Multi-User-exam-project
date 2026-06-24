@@ -47,6 +47,43 @@ function getInitials(name: string): string {
 
 const isAdminRole = (role?: string) => role === 'super_admin' || role === 'school_admin'
 
+/* ─── Custom styles for bubble tails and left-slide animation ─── */
+const ANIM_STYLES = `
+.bubble-sent::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -7px;
+  width: 14px;
+  height: 14px;
+  background: hsl(var(--accent));
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+  border-radius: 0 0 4px 0;
+}
+.bubble-received::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -7px;
+  width: 14px;
+  height: 14px;
+  background: hsl(var(--background-secondary));
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  border-radius: 0 0 0 4px;
+}
+.bubble-sent,
+.bubble-received {
+  position: relative;
+}
+.animate-slide-in-left {
+  animation: slideInLeft 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+`
+
 export default function MessagesPage() {
   const { user: authUser } = useAuth()
   const navigate = useNavigate()
@@ -436,428 +473,507 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-52px-40px)] lg:h-[calc(100vh-52px-64px)] flex bg-surface rounded-[16px] shadow-card overflow-hidden animate-fade-in">
-      {/* ── Conversation List ── */}
-      <div className={cn(
-        'w-full lg:w-[320px] flex-shrink-0 border-r border-border flex flex-col bg-background',
-        view === 'thread' && 'hidden lg:flex',
-      )}>
-        <div className="flex items-center justify-between px-5 h-14 border-b border-border flex-shrink-0">
-          <h2 className="text-[17px] font-semibold text-text-primary">Messages</h2>
-          {unreadTotal > 0 && (
-            <span className="text-xs text-accent font-medium">{unreadTotal} unread</span>
-          )}
-        </div>
-        <div className="px-4 pt-3 pb-2 flex-shrink-0">
-          <div className="relative">
-            <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-[30px] pl-8 pr-3 text-sm bg-background-secondary border border-border rounded-full text-text-primary placeholder:text-text-tertiary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)]"
-            />
-          </div>
-        </div>
+    <>
+      <style>{ANIM_STYLES}</style>
 
-        {!isAdmin && adminUsers.length > 0 && conversations.length === 0 && (
-          <div className="px-4 pb-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary mb-2">
-              Administrators
-            </p>
-            {adminUsers.map(admin => (
-              <button
-                key={admin.auth_id}
-                onClick={() => handleStartConversation(admin.auth_id)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-left hover:bg-background-secondary transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-[hsl(262_80%_58%)] flex items-center justify-center flex-shrink-0">
-                  <span className="text-[12px] font-semibold text-white">{getInitials(admin.full_name)}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-text-primary truncate">{admin.full_name}</p>
-                  <p className="text-[11px] text-text-tertiary">{admin.email}</p>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(262_80%_58%/0.12)] text-[hsl(262_80%_58%)] font-medium">Admin</span>
-              </button>
-            ))}
+      <div className="h-[calc(100vh-52px-40px)] lg:h-[calc(100vh-52px-64px)] flex bg-surface rounded-2xl shadow-card overflow-hidden animate-fade-in">
+        {/* ── Conversation List ── */}
+        <div className={cn(
+          'w-full lg:w-[320px] flex-shrink-0 border-r border-border flex flex-col',
+          view === 'thread' && 'hidden lg:flex',
+        )}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 h-14 border-b border-border flex-shrink-0 bg-surface">
+            <h2 className="text-[17px] font-semibold text-text-primary tracking-tight">Messages</h2>
+            {unreadTotal > 0 && (
+              <div className="flex items-center gap-1.5 bg-accent/10 text-accent text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                <span>{unreadTotal} unread</span>
+              </div>
+            )}
           </div>
-        )}
 
-        <div className="flex-1 overflow-y-auto">
-          {filteredConvos.length > 0 ? (
-            filteredConvos.map(c => {
-              const isActive = c.partner_id === selectedPartner
-              const hasUnread = c.unread_count > 0
-              const lastMsg = c.last_message
-              const partnerRole = partnerRoles[c.partner_id]
-              const isPartnerAdmin = isAdminRole(partnerRole)
-              const classCount = teacherClassCount[c.partner_id]
-              return (
+          {/* Search */}
+          <div className="px-4 pt-3 pb-2 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-[11px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full h-[32px] pl-8 pr-3 text-[13px] bg-background-secondary border border-border rounded-full text-text-primary placeholder:text-text-tertiary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)]"
+              />
+            </div>
+          </div>
+
+          {/* Admin list (for teachers with no convos) */}
+          {!isAdmin && adminUsers.length > 0 && conversations.length === 0 && (
+            <div className="px-4 pb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary mb-2 px-3">
+                Administrators
+              </p>
+              {adminUsers.map(admin => (
                 <button
-                  key={c.partner_id}
-                  onClick={() => { setSelectedPartner(c.partner_id); setView('thread') }}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-5 text-left transition-colors duration-150',
-                    'border-l-2',
-                    isActive
-                      ? 'bg-[hsl(var(--accent)/0.08)] border-l-accent'
-                      : 'border-l-transparent hover:bg-background-secondary',
-                  )}
-                  style={{ height: '68px' }}
+                  key={admin.auth_id}
+                  onClick={() => handleStartConversation(admin.auth_id)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-background-secondary transition-all duration-fast group"
                 >
-                  <div className={cn(
-                    'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
-                    isPartnerAdmin ? 'bg-[hsl(262_80%_58%)]' : 'bg-accent',
-                  )}>
-                    <span className="text-[12px] font-semibold text-accent-foreground">
-                      {getInitials(c.partner_name)}
-                    </span>
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <span className="text-[12px] font-semibold text-white">{getInitials(admin.full_name)}</span>
                   </div>
-                  <div className="flex-1 min-w-0 self-center">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={cn(
-                          'text-[14px] truncate',
-                          hasUnread ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary',
-                        )}>
-                          {c.partner_name}
-                        </span>
-                        {isPartnerAdmin && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(262_80%_58%/0.12)] text-[hsl(262_80%_58%)] font-medium flex-shrink-0">Admin</span>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-text-tertiary flex-shrink-0">{formatRelativeTime(lastMsg.created_at)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className={cn(
-                        'text-[13px] truncate flex-1 max-w-[180px]',
-                        hasUnread ? 'text-text-secondary' : 'text-text-tertiary',
-                      )}>
-                        {lastMsg.sender_id === userId ? 'You: ' : ''}{lastMsg.body}
-                      </p>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {isAdmin && classCount !== undefined && (
-                          <span className="text-[11px] text-text-tertiary">{classCount} class{classCount !== 1 ? 'es' : ''}</span>
-                        )}
-                        {hasUnread && (
-                          <span className="min-w-[18px] h-[18px] rounded-full bg-accent flex items-center justify-center px-1">
-                            <span className="text-[11px] font-semibold text-accent-foreground leading-none">
-                              {c.unread_count > 99 ? '99+' : c.unread_count}
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-text-primary truncate group-hover:text-accent transition-colors duration-fast">{admin.full_name}</p>
+                    <p className="text-[11px] text-text-tertiary truncate">{admin.email}</p>
                   </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold flex-shrink-0 border border-purple-500/15">Admin</span>
                 </button>
-              )
-            })
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <MessageSquare className="w-10 h-10 text-text-tertiary mb-3" />
-              <p className="text-[15px] text-text-secondary mb-1">
-                {searchQuery ? 'No conversations found' : 'No messages yet'}
-              </p>
-              <p className="text-[13px] text-text-tertiary">
-                {searchQuery ? 'Try a different search term' : isAdmin ? 'Messages from teachers will appear here' : 'Admins will appear above to start a conversation'}
-              </p>
+              ))}
             </div>
           )}
-        </div>
-      </div>
 
-      {/* ── Message Thread ── */}
-      <div className={cn(
-        'flex-1 flex flex-col min-w-0',
-        view === 'list' && 'hidden lg:flex',
-      )}>
-        {/* Thread Header */}
-        {selectedPartner ? (
-          <div className="flex items-center gap-3 px-4 h-14 border-b border-border flex-shrink-0">
-            <button
-              onClick={() => setView('list')}
-              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-sm text-text-secondary hover:bg-background-secondary transition-colors duration-fast"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className={cn(
-              'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
-              isAdminRole(threadPartnerRole) ? 'bg-[hsl(262_80%_58%)]' : 'bg-accent',
-            )}>
-              <span className="text-[12px] font-semibold text-accent-foreground">{getInitials(threadPartnerName)}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[14px] font-medium text-text-primary truncate">{threadPartnerName}</p>
+          {/* Conversation items */}
+          <div className="flex-1 overflow-y-auto [&>*:last-child>div:last-child]:hidden">
+            {filteredConvos.length > 0 ? (
+              filteredConvos.map((c, idx) => {
+                const isActive = c.partner_id === selectedPartner
+                const hasUnread = c.unread_count > 0
+                const lastMsg = c.last_message
+                const partnerRole = partnerRoles[c.partner_id]
+                const isPartnerAdmin = isAdminRole(partnerRole)
+                const classCount = teacherClassCount[c.partner_id]
+                return (
+                  <div key={c.partner_id} style={{ animationDelay: `${idx * 30}ms` }} className="animate-fade-in">
+                    <button
+                      onClick={() => { setSelectedPartner(c.partner_id); setView('thread') }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 text-left transition-all duration-fast relative',
+                        'border-l-[3px]',
+                        isActive
+                          ? 'bg-accent/8 border-l-accent'
+                          : 'border-l-transparent hover:bg-background-secondary/60',
+                      )}
+                      style={{ minHeight: '68px' }}
+                    >
+                      <div className={cn(
+                        'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm',
+                        isPartnerAdmin
+                          ? 'bg-gradient-to-br from-purple-500 to-purple-700'
+                          : 'bg-gradient-to-br from-accent to-blue-600',
+                      )}>
+                        <span className="text-[12px] font-semibold text-white leading-none">
+                          {getInitials(c.partner_name)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0 self-center pt-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={cn(
+                              'text-[14px] truncate leading-tight',
+                              hasUnread ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary',
+                            )}>
+                              {c.partner_name}
+                            </span>
+                            {isPartnerAdmin && (
+                              <span className="text-[9px] px-1.5 py-[2px] rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold flex-shrink-0 border border-purple-500/15 leading-none">Admin</span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-text-tertiary flex-shrink-0 leading-none">{formatRelativeTime(lastMsg.created_at)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <p className={cn(
+                            'text-[12.5px] truncate flex-1 max-w-[180px] leading-normal',
+                            hasUnread ? 'text-text-secondary font-medium' : 'text-text-tertiary',
+                          )}>
+                            {lastMsg.sender_id === userId && (
+                              <span className="text-accent/80 font-medium">You: </span>
+                            )}
+                            {lastMsg.body}
+                          </p>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {isAdmin && classCount !== undefined && (
+                              <span className="text-[10px] text-text-tertiary font-medium px-1 bg-background-tertiary/50 rounded">{classCount}c</span>
+                            )}
+                            {hasUnread && (
+                              <span className="min-w-[19px] h-[19px] rounded-full bg-accent flex items-center justify-center px-1 shadow-sm">
+                                <span className="text-[10px] font-bold text-accent-foreground leading-none tracking-tight">
+                                  {c.unread_count > 99 ? '99+' : c.unread_count}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    {idx < filteredConvos.length - 1 && (
+                      <div className="h-px bg-border/60 mx-4" />
+                    )}
+                  </div>
+                )
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-background-secondary flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-7 h-7 text-text-tertiary" />
+                </div>
+                <p className="text-[15px] font-medium text-text-secondary mb-1.5">
+                  {searchQuery ? 'No conversations found' : 'No messages yet'}
+                </p>
+                <p className="text-[13px] text-text-tertiary max-w-[220px]">
+                  {searchQuery ? 'Try a different search term' : isAdmin ? 'Messages from teachers will appear here' : 'Admins will appear above to start a conversation'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Message Thread ── */}
+        <div className={cn(
+          'flex-1 flex flex-col min-w-0 bg-surface',
+          view === 'list' && 'hidden lg:flex',
+        )}>
+          {/* Thread Header */}
+          {selectedPartner ? (
+            <div className="flex items-center gap-3 px-4 h-14 border-b border-border flex-shrink-0 bg-surface">
+              <button
+                onClick={() => setView('list')}
+                className="lg:hidden w-8 h-8 flex items-center justify-center rounded-full text-text-secondary hover:bg-background-secondary transition-all duration-fast active:scale-90"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className={cn(
+                'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm',
+                isAdminRole(threadPartnerRole)
+                  ? 'bg-gradient-to-br from-purple-500 to-purple-700'
+                  : 'bg-gradient-to-br from-accent to-blue-600',
+              )}>
+                <span className="text-[12px] font-semibold text-white leading-none">{getInitials(threadPartnerName)}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[14px] font-semibold text-text-primary truncate">{threadPartnerName}</p>
+                  {isAdminRole(threadPartnerRole) && (
+                    <span className="text-[9px] px-1.5 py-[2px] rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold border border-purple-500/15">Admin</span>
+                  )}
+                </div>
                 {isAdminRole(threadPartnerRole) && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(262_80%_58%/0.12)] text-[hsl(262_80%_58%)] font-medium">Admin</span>
+                  <p className="text-[11px] text-text-tertiary leading-none mt-0.5">Administrator</p>
                 )}
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="hidden lg:flex items-center px-5 h-14 border-b border-border flex-shrink-0">
-            <p className="text-[14px] font-medium text-text-secondary">{conversations.length > 0 ? 'Select a conversation' : 'New Message'}</p>
-          </div>
-        )}
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-          {selectedPartner && threadMessages.length > 0 ? (
-            threadMessages.map((m, idx) => {
-              const isMine = m.sender_id === userId
-              const showDate = idx === 0 || new Date(m.created_at).toDateString() !== new Date(threadMessages[idx - 1].created_at).toDateString()
-              const hasRef = m.subject_id || m.image_id || m.class_id || m.teacher_ref_id
-              return (
-                <div key={m.id}>
-                  {showDate && (
-                    <div className="flex items-center gap-3 my-4">
-                      <div className="flex-1 h-px bg-border" />
-                      <span className="text-[13px] text-text-tertiary flex-shrink-0">{formatDateSeparator(m.created_at)}</span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-                  )}
-                  <div className={cn('flex', isMine ? 'justify-end' : 'justify-start', 'mb-1')}>
-                    <div className="max-w-[70%]">
-                      <div className={cn(
-                        'px-4 py-2.5 text-[15px] leading-snug whitespace-pre-wrap break-words',
-                        isMine
-                          ? 'bg-[hsl(var(--accent))] text-white rounded-[18px_18px_4px_18px]'
-                          : 'bg-[hsl(var(--background-secondary))] text-text-primary rounded-[18px_18px_18px_4px]',
-                      )}>
-                        {hasRef && (
-                          <div className={cn(
-                            'rounded-lg p-2 text-[13px] mb-1.5 space-y-1',
-                            isMine ? 'bg-white/15' : 'bg-background-tertiary',
-                          )}>
-                            {m.subject_id && (
-                              <button onClick={() => navigate(isAdmin ? `/admin/subjects/${m.subject_id}` : `/subjects/${m.subject_id}`)}
-                                className="flex items-center gap-2 hover:underline w-full">
-                                <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="font-medium truncate">{m.subject_name || 'Subject'}</span>
-                              </button>
-                            )}
-                            {m.image_id && (
-                              <button onClick={() => navigate(isAdmin ? `/admin/subjects/${m.subject_id || ''}` : `/subjects/${m.subject_id || ''}`)}
-                                className="flex items-center gap-2 hover:underline w-full">
-                                <ImageIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="font-medium truncate">{m.image_title || 'Image'}</span>
-                              </button>
-                            )}
-                            {m.class_id && (
-                              <button onClick={() => navigate(isAdmin ? '/admin/classes' : '/uploads')}
-                                className="flex items-center gap-2 hover:underline w-full">
-                                <GraduationCap className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="font-medium truncate">{m.class_name || 'Class'}</span>
-                              </button>
-                            )}
-                            {m.teacher_ref_id && (
-                              <button onClick={() => navigate('/admin/teachers')}
-                                className="flex items-center gap-2 hover:underline w-full">
-                                <Users className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="font-medium truncate">{m.teacher_ref_name || 'Teacher'}</span>
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        {m.body}
-                      </div>
-                      <div className={cn(
-                        'flex items-center gap-1 mt-0.5',
-                        isMine ? 'justify-end' : 'justify-start',
-                      )}>
-                        <span className="text-[11px] text-text-tertiary">{formatMessageTime(m.created_at)}</span>
-                        {isMine && (
-                          <span className="inline-flex items-center">
-                            <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-                              {m.read ? (
-                                <>
-                                  <path d="M1 4l2 2L7 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent" />
-                                  <path d="M6 4l2 2L11 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent" />
-                                </>
-                              ) : (
-                                <path d="M1 4l2 2L7 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-tertiary" />
-                              )}
-                            </svg>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })
-          ) : selectedPartner ? (
-            <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <div className="w-14 h-14 rounded-full bg-background-secondary flex items-center justify-center mx-auto mb-3">
-                <MessageSquare className="w-7 h-7 text-text-tertiary" />
-              </div>
-              <p className="text-[15px] text-text-secondary max-w-[280px]">No messages yet</p>
-              <p className="text-[13px] text-text-tertiary mt-1 max-w-[280px]">Type a message below</p>
-            </div>
           ) : (
-            <div className="hidden lg:flex flex-col items-center justify-center h-full text-center px-6">
-              <MessageSquare className="w-12 h-12 text-text-tertiary mb-3" />
-              <p className="text-[17px] font-medium text-text-secondary">Select a conversation</p>
-              <p className="text-[14px] text-text-tertiary mt-1">Or start a new one</p>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Send error */}
-        {sendError && (
-          <div className="px-4 py-2 text-xs text-status-rejected bg-status-rejected-bg">{sendError}</div>
-        )}
-
-        {/* Compose Area */}
-        <div className="flex-shrink-0 border-t border-border bg-surface relative">
-          {/* Reference chips */}
-          {(subjectRef || imageRef || teacherRef || classRef) && (
-            <div className="flex items-center gap-1.5 px-4 pt-2 pb-0 flex-wrap">
-              {subjectRef && (
-                <div className="flex items-center gap-1 text-[12px] bg-accent-subtle text-accent px-2.5 py-0.5 rounded-full h-7">
-                  <BookOpen className="w-3 h-3" />
-                  <span className="truncate max-w-[120px]">{subjectRef.name.length > 20 ? subjectRef.name.slice(0, 20) + '...' : subjectRef.name}</span>
-                  <button onClick={removeRef} className="ml-0.5 hover:opacity-70"><X className="w-3 h-3" /></button>
-                </div>
-              )}
-              {imageRef && (
-                <div className="flex items-center gap-1 text-[12px] bg-accent-subtle text-accent px-2.5 py-0.5 rounded-full h-7">
-                  <ImageIcon className="w-3 h-3" />
-                  <span className="truncate max-w-[120px]">{imageRef.title.length > 20 ? imageRef.title.slice(0, 20) + '...' : imageRef.title}</span>
-                  <button onClick={removeRef} className="ml-0.5 hover:opacity-70"><X className="w-3 h-3" /></button>
-                </div>
-              )}
-              {teacherRef && (
-                <div className="flex items-center gap-1 text-[12px] bg-status-completed-bg text-status-completed px-2.5 py-0.5 rounded-full h-7">
-                  <Users className="w-3 h-3" />
-                  <span className="truncate max-w-[120px]">{teacherRef.name.length > 20 ? teacherRef.name.slice(0, 20) + '...' : teacherRef.name}</span>
-                  <button onClick={removeRef} className="ml-0.5 hover:opacity-70"><X className="w-3 h-3" /></button>
-                </div>
-              )}
-              {classRef && (
-                <div className="flex items-center gap-1 text-[12px] bg-accent-subtle text-accent px-2.5 py-0.5 rounded-full h-7">
-                  <GraduationCap className="w-3 h-3" />
-                  <span className="truncate max-w-[120px]">{classRef.name.length > 20 ? classRef.name.slice(0, 20) + '...' : classRef.name}</span>
-                  <button onClick={removeRef} className="ml-0.5 hover:opacity-70"><X className="w-3 h-3" /></button>
-                </div>
-              )}
+            <div className="hidden lg:flex items-center px-5 h-14 border-b border-border flex-shrink-0 bg-surface">
+              <p className="text-[14px] font-medium text-text-secondary">
+                {conversations.length > 0 ? 'Select a conversation' : 'New Message'}
+              </p>
             </div>
           )}
 
-          <div className="flex items-end gap-2 px-4 py-3 relative">
-            {/* Reference picker trigger */}
-            <div ref={pickerRef}>
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scroll-smooth">
+            {selectedPartner && threadMessages.length > 0 ? (
+              threadMessages.map((m, idx) => {
+                const isMine = m.sender_id === userId
+                const showDate = idx === 0 || new Date(m.created_at).toDateString() !== new Date(threadMessages[idx - 1].created_at).toDateString()
+                const hasRef = m.subject_id || m.image_id || m.class_id || m.teacher_ref_id
+                return (
+                  <div key={m.id} className={cn(isMine ? 'animate-slide-in-right' : 'animate-slide-in-left')}>
+                    {showDate && (
+                      <div className="flex items-center gap-3 my-5 animate-fade-in">
+                        <div className="flex-1 h-px bg-border/50" />
+                        <span className="text-[12px] font-medium text-text-tertiary tracking-wide flex-shrink-0 px-1">
+                          {formatDateSeparator(m.created_at)}
+                        </span>
+                        <div className="flex-1 h-px bg-border/50" />
+                      </div>
+                    )}
+                    <div className={cn('flex', isMine ? 'justify-end' : 'justify-start', 'mb-0.5')}>
+                      <div className="max-w-[72%] md:max-w-[65%]">
+                        {/* Bubble */}
+                        <div
+                          className={cn(
+                            'px-[14px] py-[10px] text-[15px] leading-snug whitespace-pre-wrap break-words',
+                            'shadow-sm',
+                            isMine
+                              ? 'bubble-sent bg-accent text-white rounded-[18px_18px_4px_18px]'
+                              : 'bubble-received bg-background-secondary text-text-primary rounded-[18px_18px_18px_4px]',
+                          )}
+                        >
+                          {hasRef && (
+                            <div className={cn(
+                              'rounded-xl p-2.5 text-[13px] mb-2 space-y-1.5',
+                              isMine ? 'bg-white/12' : 'bg-background-tertiary/70',
+                            )}>
+                              {m.subject_id && (
+                                <button onClick={() => navigate(isAdmin ? `/admin/subjects/${m.subject_id}` : `/subjects/${m.subject_id}`)}
+                                  className="flex items-center gap-2 hover:underline w-full group">
+                                  <div className={cn(
+                                    'w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0',
+                                    isMine ? 'bg-white/15' : 'bg-accent/10',
+                                  )}>
+                                    <BookOpen className={cn('w-3 h-3', isMine ? 'text-white/80' : 'text-accent')} />
+                                  </div>
+                                  <span className="font-medium truncate group-hover:opacity-80 transition-opacity">{m.subject_name || 'Subject'}</span>
+                                </button>
+                              )}
+                              {m.image_id && (
+                                <button onClick={() => navigate(isAdmin ? `/admin/subjects/${m.subject_id || ''}` : `/subjects/${m.subject_id || ''}`)}
+                                  className="flex items-center gap-2 hover:underline w-full group">
+                                  <div className={cn(
+                                    'w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0',
+                                    isMine ? 'bg-white/15' : 'bg-amber-500/10',
+                                  )}>
+                                    <ImageIcon className={cn('w-3 h-3', isMine ? 'text-white/80' : 'text-amber-600 dark:text-amber-400')} />
+                                  </div>
+                                  <span className="font-medium truncate group-hover:opacity-80 transition-opacity">{m.image_title || 'Image'}</span>
+                                </button>
+                              )}
+                              {m.class_id && (
+                                <button onClick={() => navigate(isAdmin ? '/admin/classes' : '/uploads')}
+                                  className="flex items-center gap-2 hover:underline w-full group">
+                                  <div className={cn(
+                                    'w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0',
+                                    isMine ? 'bg-white/15' : 'bg-accent/10',
+                                  )}>
+                                    <GraduationCap className={cn('w-3 h-3', isMine ? 'text-white/80' : 'text-accent')} />
+                                  </div>
+                                  <span className="font-medium truncate group-hover:opacity-80 transition-opacity">{m.class_name || 'Class'}</span>
+                                </button>
+                              )}
+                              {m.teacher_ref_id && (
+                                <button onClick={() => navigate('/admin/teachers')}
+                                  className="flex items-center gap-2 hover:underline w-full group">
+                                  <div className={cn(
+                                    'w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0',
+                                    isMine ? 'bg-white/15' : 'bg-emerald-500/10',
+                                  )}>
+                                    <Users className={cn('w-3 h-3', isMine ? 'text-white/80' : 'text-emerald-600 dark:text-emerald-400')} />
+                                  </div>
+                                  <span className="font-medium truncate group-hover:opacity-80 transition-opacity">{m.teacher_ref_name || 'Teacher'}</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {m.body}
+                        </div>
+
+                        {/* Timestamp + Read receipt */}
+                        <div className={cn(
+                          'flex items-center gap-1 mt-[3px]',
+                          isMine ? 'justify-end mr-0.5' : 'justify-start ml-1',
+                        )}>
+                          <span className={cn(
+                            'text-[10px] leading-none',
+                            isMine ? 'text-text-tertiary' : 'text-text-tertiary',
+                          )}>
+                            {formatMessageTime(m.created_at)}
+                          </span>
+                          {isMine && (
+                            <span className="inline-flex items-center">
+                              <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
+                                {m.read ? (
+                                  <>
+                                    <path d="M1.5 4.5L3.5 6.5L7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent" />
+                                    <path d="M7 4.5L9 6.5L12.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent" />
+                                  </>
+                                ) : (
+                                  <path d="M1.5 4.5L3.5 6.5L7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-tertiary" />
+                                )}
+                              </svg>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            ) : selectedPartner ? (
+              <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in">
+                <div className="w-16 h-16 rounded-full bg-background-secondary flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-8 h-8 text-text-tertiary" />
+                </div>
+                <p className="text-[15px] font-medium text-text-secondary">No messages yet</p>
+                <p className="text-[13px] text-text-tertiary mt-1">Type a message below to start the conversation</p>
+              </div>
+            ) : (
+              <div className="hidden lg:flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in">
+                <div className="w-16 h-16 rounded-full bg-background-secondary flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-8 h-8 text-text-tertiary" />
+                </div>
+                <p className="text-[17px] font-medium text-text-secondary">Select a conversation</p>
+                <p className="text-[14px] text-text-tertiary mt-1">Choose from your conversations on the left</p>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Send error */}
+          {sendError && (
+            <div className="mx-4 mb-2 px-3 py-2 text-[11px] text-status-rejected bg-status-rejected-bg border border-status-rejected/20 rounded-lg animate-slide-down">
+              {sendError}
+            </div>
+          )}
+
+          {/* ── Compose Area ── */}
+          <div className="flex-shrink-0 border-t border-border bg-surface">
+            {/* Reference chips */}
+            {(subjectRef || imageRef || teacherRef || classRef) && (
+              <div className="flex items-center gap-1.5 px-4 pt-2.5 pb-1 flex-wrap">
+                {subjectRef && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium bg-accent/10 text-accent px-3 py-1 rounded-full border border-accent/15 animate-scale-in">
+                    <BookOpen className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate max-w-[110px]">{subjectRef.name}</span>
+                    <button onClick={removeRef} className="ml-0.5 hover:bg-accent/10 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+                {imageRef && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full border border-amber-500/15 animate-scale-in">
+                    <ImageIcon className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate max-w-[110px]">{imageRef.title}</span>
+                    <button onClick={removeRef} className="ml-0.5 hover:bg-amber-500/10 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+                {teacherRef && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/15 animate-scale-in">
+                    <Users className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate max-w-[110px]">{teacherRef.name}</span>
+                    <button onClick={removeRef} className="ml-0.5 hover:bg-emerald-500/10 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+                {classRef && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium bg-accent/10 text-accent px-3 py-1 rounded-full border border-accent/15 animate-scale-in">
+                    <GraduationCap className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate max-w-[110px]">{classRef.name}</span>
+                    <button onClick={removeRef} className="ml-0.5 hover:bg-accent/10 rounded-full p-0.5 transition-colors"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-end gap-2 px-4 py-3">
+              {/* Attachment button */}
+              <div ref={pickerRef} className="relative">
+                <button
+                  onClick={openRefPicker}
+                  className="w-9 h-9 flex items-center justify-center rounded-full text-text-tertiary hover:text-accent hover:bg-accent/8 transition-all duration-fast active:scale-90 flex-shrink-0"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+
+                {/* Reference picker */}
+                {showRefPicker && (
+                  <div className="absolute bottom-full mb-2 left-0 w-[320px] bg-surface border border-border rounded-2xl shadow-lg max-h-[300px] overflow-y-auto z-50 animate-scale-in origin-bottom-left">
+                    {/* Tabs */}
+                    <div className="grid grid-cols-4 gap-1 p-2 bg-background-secondary mx-3 mt-3 rounded-xl">
+                      {(['subjects', 'images', 'teachers', 'classes'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setRefTab(tab)}
+                          className={cn(
+                            'text-[11px] font-semibold py-1.5 rounded-lg transition-all duration-fast capitalize tracking-tight',
+                            refTab === tab
+                              ? 'bg-surface text-text-primary shadow-sm border border-border/50'
+                              : 'text-text-tertiary hover:text-text-secondary',
+                          )}
+                        >
+                          {tab === 'images' ? 'Uploads' : tab}
+                        </button>
+                      ))}
+                    </div>
+                    {/* List */}
+                    <div className="py-1">
+                      {refTab === 'subjects' && (
+                        availableSubjects.length > 0 ? availableSubjects.map(s => (
+                          <button key={s.subject_id} onClick={() => selectSubjectRef(s)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors group"
+                            style={{ minHeight: '44px' }}>
+                            <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                              <BookOpen className="w-4 h-4 text-accent" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-medium text-text-primary truncate group-hover:text-accent transition-colors">{s.subject_name}</p>
+                              <p className="text-[11px] text-text-tertiary">{s.class_name}</p>
+                            </div>
+                          </button>
+                        )) : <p className="text-[13px] text-text-tertiary text-center py-10">No subjects available</p>
+                      )}
+                      {refTab === 'images' && (
+                        availableImages.length > 0 ? availableImages.map(img => (
+                          <button key={img.id} onClick={() => selectImageRef(img)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors group"
+                            style={{ minHeight: '44px' }}>
+                            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                              <ImageIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-medium text-text-primary truncate group-hover:text-accent transition-colors">{img.title}</p>
+                              <p className="text-[11px] text-text-tertiary">Image #{img.id}</p>
+                            </div>
+                          </button>
+                        )) : <p className="text-[13px] text-text-tertiary text-center py-10">No images available</p>
+                      )}
+                      {refTab === 'teachers' && (
+                        availableTeachers.length > 0 ? availableTeachers.map(t => (
+                          <button key={t.id} onClick={() => selectTeacherRef(t)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors group"
+                            style={{ minHeight: '44px' }}>
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-medium text-text-primary truncate group-hover:text-accent transition-colors">{t.full_name}</p>
+                              <p className="text-[11px] text-text-tertiary">{t.email}</p>
+                            </div>
+                          </button>
+                        )) : <p className="text-[13px] text-text-tertiary text-center py-10">No teachers found</p>
+                      )}
+                      {refTab === 'classes' && (
+                        availableClasses.length > 0 ? availableClasses.map(c => (
+                          <button key={c.id} onClick={() => selectClassRef(c)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors group"
+                            style={{ minHeight: '44px' }}>
+                            <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                              <GraduationCap className="w-4 h-4 text-accent" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-medium text-text-primary truncate group-hover:text-accent transition-colors">{c.name}</p>
+                              {c.section && <p className="text-[11px] text-text-tertiary">Section {c.section}</p>}
+                            </div>
+                          </button>
+                        )) : <p className="text-[13px] text-text-tertiary text-center py-10">No classes found</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Text input */}
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  value={inputText}
+                  onChange={e => { setInputText(e.target.value); autoGrowTextarea() }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Message\u2026"
+                  rows={1}
+                  className="w-full py-[10px] px-4 text-[15px] bg-background-secondary border border-border rounded-2xl text-text-primary placeholder:text-text-tertiary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)] resize-none overflow-y-auto leading-snug"
+                  style={{ maxHeight: '120px' }}
+                />
+              </div>
+
+              {/* Send button */}
               <button
-                onClick={openRefPicker}
-                className="w-9 h-9 flex items-center justify-center rounded-full text-text-tertiary hover:bg-background-secondary transition-colors duration-fast"
+                onClick={handleSend}
+                disabled={!inputText.trim() || sending}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-fast active:scale-90 flex-shrink-0 shadow-sm"
               >
-                <Paperclip className="w-5 h-5" />
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
-
-              {showRefPicker && (
-                <div className="absolute bottom-full mb-2 left-0 right-0 bg-surface border border-border rounded-[16px] shadow-lg max-h-[280px] overflow-y-auto z-50">
-                  {/* Tabs */}
-                  <div className="grid grid-cols-4 p-1.5 gap-1 bg-background-secondary mx-3 mt-3 rounded-[10px]">
-                    {(['subjects', 'images', 'teachers', 'classes'] as const).map(tab => (
-                      <button
-                        key={tab}
-                        onClick={() => setRefTab(tab)}
-                        className={cn(
-                          'text-[11px] font-medium py-1.5 rounded-[8px] transition-all duration-fast capitalize',
-                          refTab === tab ? 'bg-surface text-text-primary shadow-sm' : 'text-text-tertiary',
-                        )}
-                      >
-                        {tab === 'images' ? 'Uploads' : tab}
-                      </button>
-                    ))}
-                  </div>
-                  {/* List */}
-                  <div className="py-1">
-                    {refTab === 'subjects' && (
-                      availableSubjects.length > 0 ? availableSubjects.map(s => (
-                        <button key={s.subject_id} onClick={() => selectSubjectRef(s)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors"
-                          style={{ minHeight: '44px' }}>
-                          <BookOpen className="w-4 h-4 text-accent flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] text-text-primary truncate">{s.subject_name}</p>
-                            <p className="text-[11px] text-text-tertiary">{s.class_name}</p>
-                          </div>
-                        </button>
-                      )) : <p className="text-[13px] text-text-tertiary text-center py-6">No subjects available</p>
-                    )}
-                    {refTab === 'images' && (
-                      availableImages.length > 0 ? availableImages.map(img => (
-                        <button key={img.id} onClick={() => selectImageRef(img)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors"
-                          style={{ minHeight: '44px' }}>
-                          <ImageIcon className="w-4 h-4 text-status-pending flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] text-text-primary truncate">{img.title}</p>
-                            <p className="text-[11px] text-text-tertiary">Image #{img.id}</p>
-                          </div>
-                        </button>
-                      )) : <p className="text-[13px] text-text-tertiary text-center py-6">No images available</p>
-                    )}
-                    {refTab === 'teachers' && (
-                      availableTeachers.length > 0 ? availableTeachers.map(t => (
-                        <button key={t.id} onClick={() => selectTeacherRef(t)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors"
-                          style={{ minHeight: '44px' }}>
-                          <Users className="w-4 h-4 text-status-completed flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] text-text-primary truncate">{t.full_name}</p>
-                            <p className="text-[11px] text-text-tertiary">{t.email}</p>
-                          </div>
-                        </button>
-                      )) : <p className="text-[13px] text-text-tertiary text-center py-6">No teachers found</p>
-                    )}
-                    {refTab === 'classes' && (
-                      availableClasses.length > 0 ? availableClasses.map(c => (
-                        <button key={c.id} onClick={() => selectClassRef(c)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-background-secondary transition-colors"
-                          style={{ minHeight: '44px' }}>
-                          <GraduationCap className="w-4 h-4 text-accent flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] text-text-primary truncate">{c.name}</p>
-                            {c.section && <p className="text-[11px] text-text-tertiary">Section {c.section}</p>}
-                          </div>
-                        </button>
-                      )) : <p className="text-[13px] text-text-tertiary text-center py-6">No classes found</p>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
-
-            {/* Composer */}
-            <div className="flex-1">
-              <textarea
-                ref={textareaRef}
-                value={inputText}
-                onChange={e => { setInputText(e.target.value); autoGrowTextarea() }}
-                onKeyDown={handleKeyDown}
-                placeholder="Message\u2026"
-                rows={1}
-                className="w-full py-2.5 px-4 text-[15px] bg-background-secondary border border-border rounded-full text-text-primary placeholder:text-text-tertiary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)] resize-none overflow-y-auto"
-                style={{ maxHeight: '120px' }}
-              />
-            </div>
-
-            <button
-              onClick={handleSend}
-              disabled={!inputText.trim() || sending}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-fast flex-shrink-0"
-            >
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

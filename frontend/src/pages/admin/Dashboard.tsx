@@ -2,16 +2,15 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, Users, Clock, CheckCircle, Eye, Loader2,
-  ScanText, FileDown, Grid3x3, Zap, Upload, FolderOpen,
-  ChevronRight, FileText, XCircle,
+  ScanText, Grid3x3, Zap, Upload, FolderOpen,
+  ChevronRight, FileText, XCircle, Download,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { dashboardApi, imagesApi } from '@/api/endpoints'
 import { cn } from '@/lib/utils'
 
 const nextStage: Record<string, string> = {
-  needs_ocr: 'needs_docx',
-  needs_docx: 'needs_impose',
+  needs_ocr: 'needs_impose',
   needs_impose: 'completed',
 }
 
@@ -57,16 +56,12 @@ function formatRelativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-const pipelineTabs = ['needs_ocr', 'needs_docx', 'needs_impose', 'completed'] as const
+const pipelineTabs = ['needs_ocr', 'needs_impose', 'completed'] as const
 
 const pipelineConfig: Record<string, { icon: React.ElementType; label: string; color: string; bg: string; action: string }> = {
   needs_ocr: {
     icon: ScanText, label: 'Needs OCR', color: 'text-status-pending',
     bg: 'bg-status-pending-bg', action: 'Run OCR',
-  },
-  needs_docx: {
-    icon: FileDown, label: 'Needs DOCX', color: 'text-status-processing',
-    bg: 'bg-status-processing-bg', action: 'Build DOCX',
   },
   needs_impose: {
     icon: Grid3x3, label: 'Needs Impose', color: 'text-accent',
@@ -80,10 +75,10 @@ const pipelineConfig: Record<string, { icon: React.ElementType; label: string; c
 
 function StatCardSkeleton() {
   return (
-    <div className="bg-surface rounded-[16px] p-5 shadow-card animate-pulse">
-      <div className="w-9 h-9 rounded-sm bg-background-tertiary shimmer mb-4" />
-      <div className="w-16 h-8 rounded bg-background-tertiary shimmer mb-2" />
-      <div className="w-20 h-3 rounded bg-background-tertiary shimmer" />
+    <div className="bg-surface rounded-2xl p-6 shadow-card animate-pulse">
+      <div className="w-9 h-9 rounded-xl bg-background-tertiary skeleton mb-4" />
+      <div className="w-16 h-8 rounded-lg bg-background-tertiary skeleton mb-2" />
+      <div className="w-20 h-3 rounded bg-background-tertiary skeleton" />
     </div>
   )
 }
@@ -99,7 +94,6 @@ export default function AdminDashboard() {
   const [pipelineTab, setPipelineTab] = useState<string>('needs_ocr')
   const [pipelineData, setPipelineData] = useState<Record<string, any[]>>({
     needs_ocr: [],
-    needs_docx: [],
     needs_impose: [],
     completed: [],
   })
@@ -168,8 +162,6 @@ export default function AdminDashboard() {
     try {
       if (stage === 'needs_ocr') {
         await imagesApi.ocr(item.id)
-      } else if (stage === 'needs_docx') {
-        await imagesApi.buildDocx(item.id)
       } else if (stage === 'needs_impose') {
         await imagesApi.impose(item.id, defaultImposeSettings)
       }
@@ -217,11 +209,14 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-status-rejected-bg flex items-center justify-center">
+          <XCircle className="w-7 h-7 text-status-rejected" />
+        </div>
         <p className="text-[15px] text-text-secondary">Couldn't load dashboard. Try refreshing.</p>
         <button
           onClick={fetchData}
-          className="text-sm text-accent font-medium px-4 py-1.5 rounded-sm border border-transparent hover:border-border transition-colors duration-fast"
+          className="text-sm text-accent font-medium px-5 py-2 rounded-xl border border-border hover:bg-accent-subtle hover:border-accent/30 transition-all duration-fast"
         >
           Retry
         </button>
@@ -230,17 +225,19 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="max-w-6xl animate-fade-in">
-      {/* Greeting */}
-      <div className="mb-8 animate-fade-in">
-        <h1 className="text-[28px] font-bold tracking-tight text-text-primary">
-          {greeting}, {firstName}
-        </h1>
-        <p className="text-[15px] text-text-secondary mt-1">{DateStr}</p>
+    <div className="max-w-6xl mx-auto">
+      {/* ── Greeting ── */}
+      <div className="mb-10">
+        <div className="animate-fade-in">
+          <h1 className="text-[28px] font-bold tracking-tight text-text-primary">
+            {greeting}, {firstName}
+          </h1>
+          <p className="text-[15px] text-text-secondary mt-1.5">{DateStr}</p>
+        </div>
       </div>
 
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
         {loading ? (
           <>
             <StatCardSkeleton />
@@ -254,51 +251,68 @@ export default function AdminDashboard() {
             return (
               <div
                 key={stat.label}
-                className="bg-surface rounded-[16px] p-5 shadow-card transition-all duration-200 ease-apple hover:-translate-y-[2px] hover:shadow-lg animate-fade-in"
+                className={cn(
+                  'bg-surface rounded-2xl p-6 shadow-card',
+                  'transition-all duration-fast ease-spring hover-lift',
+                  'animate-fade-in',
+                )}
                 style={{ animationDelay: `${i * 80}ms` }}
               >
-                <div className={cn('w-9 h-9 rounded-sm flex items-center justify-center mb-4', stat.iconBg)}>
+                <div
+                  className={cn(
+                    'w-9 h-9 rounded-xl flex items-center justify-center mb-4',
+                    'shadow-sm ring-1 ring-black/[0.03]',
+                    stat.iconBg,
+                  )}
+                >
                   <Icon className={cn('w-5 h-5', stat.iconColor)} />
                 </div>
                 <p className="text-[32px] font-bold tracking-tight text-text-primary leading-none mb-1">
                   {stat.value}
                 </p>
-                <p className="text-[13px] text-text-secondary font-normal">{stat.label}</p>
-                <p className="text-[11px] text-text-tertiary mt-0.5">{stat.desc}</p>
+                <p className="text-[13px] text-text-secondary font-medium">{stat.label}</p>
+                <p className="text-[11px] text-text-tertiary mt-1 leading-snug">{stat.desc}</p>
               </div>
             )
           })
         )}
       </div>
 
-      {/* Two-column layout */}
+      {/* ── Two-column layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* LEFT — Pipeline */}
-        <div className="lg:col-span-3 animate-fade-in">
-          <div className="bg-surface rounded-[16px] shadow-card overflow-hidden">
-            {/* Tabs */}
-            <div className="flex border-b border-border">
+        {/* ─── LEFT: Pipeline ─── */}
+        <div className="lg:col-span-3 animate-fade-in" style={{ animationDelay: '360ms' }}>
+          <div className="bg-surface rounded-2xl shadow-card overflow-hidden">
+            {/* Tab bar */}
+            <div className="flex border-b border-border/80">
               {pipelineTabs.map(tab => {
                 const cfg = pipelineConfig[tab]
                 const Icon = cfg.icon
                 const count = (pipelineData[tab] || []).length
+                const isActive = pipelineTab === tab
                 return (
                   <button
                     key={tab}
                     onClick={() => setPipelineTab(tab)}
                     className={cn(
-                      'flex-1 flex items-center justify-center gap-1.5 h-11 text-[13px] font-medium transition-colors duration-fast',
-                      pipelineTab === tab
-                        ? 'text-accent border-b-2 border-accent bg-accent/4'
+                      'flex-1 flex items-center justify-center gap-1.5 h-12 text-[13px] font-medium',
+                      'transition-all duration-fast ease-standard',
+                      isActive
+                        ? 'text-accent border-b-2 border-accent bg-accent/5'
                         : 'text-text-tertiary hover:text-text-secondary hover:bg-background-secondary',
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">{cfg.label}</span>
-                    <span className={cn(
-                      'text-[11px] rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center',
-                      pipelineTab === tab ? 'bg-accent text-accent-foreground' : 'bg-background-tertiary text-text-tertiary',
-                    )}>
+                    <span
+                      className={cn(
+                        'text-[11px] font-medium rounded-full px-1.5 min-w-[20px] h-[20px] flex items-center justify-center',
+                        'transition-all duration-fast',
+                        isActive
+                          ? 'bg-accent text-accent-foreground shadow-sm'
+                          : 'bg-background-tertiary text-text-tertiary',
+                      )}
+                    >
                       {count}
                     </span>
                   </button>
@@ -309,60 +323,71 @@ export default function AdminDashboard() {
             {/* List */}
             <div className="p-1">
               {loading ? (
-                <div className="space-y-1 py-4">
+                <div className="space-y-0.5 py-5">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
-                      <div className="w-8 h-8 rounded-full bg-background-tertiary shimmer flex-shrink-0" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="w-40 h-3 rounded bg-background-tertiary shimmer" />
-                        <div className="w-24 h-2.5 rounded bg-background-tertiary shimmer" />
+                    <div key={i} className="flex items-center gap-3 px-4 py-3.5 animate-pulse">
+                      <div className="w-8 h-8 rounded-xl bg-background-tertiary skeleton flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="w-40 h-3.5 rounded bg-background-tertiary skeleton" />
+                        <div className="w-24 h-2.5 rounded bg-background-tertiary skeleton" />
                       </div>
-                      <div className="w-16 h-7 rounded-lg bg-background-tertiary shimmer" />
+                      <div className="w-20 h-8 rounded-xl bg-background-tertiary skeleton" />
                     </div>
                   ))}
                 </div>
               ) : currentItems.length > 0 ? (
-                <div className="space-y-1">
+                <div key={pipelineTab} className="divide-y divide-border/50">
                   {currentItems.map((item: any, idx: number) => {
-                    const isLast = idx === currentItems.length - 1
                     const isBusy = actionLoading[item.id]
                     const errorMsg = rowErrors[item.id]
                     const isCompleted = pipelineTab === 'completed'
                     return (
-                      <div key={item.id}>
-                        <div className={cn(
-                          'flex items-center gap-3 px-4 py-3 transition-all duration-fast',
-                          errorMsg ? 'bg-red-50/40' : '',
-                        )}>
-                          <div className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                            config.bg,
-                          )}>
+                      <div key={item.id} className="animate-slide-up" style={{ animationDelay: `${idx * 60}ms` }}>
+                        <div
+                          className={cn(
+                            'flex items-center gap-3 px-4 py-3.5 transition-all duration-fast',
+                            errorMsg ? 'bg-status-rejected-bg/30' : '',
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0',
+                              'shadow-sm ring-1 ring-black/[0.03]',
+                              config.bg,
+                            )}
+                          >
                             <TabIcon className={cn('w-4 h-4', config.color)} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-text-primary truncate">{item.name}</p>
-                            <p className="text-[12px] text-text-tertiary">
+                            <p className="text-[14px] font-medium text-text-primary truncate leading-snug">
+                              {item.name}
+                            </p>
+                            <p className="text-[12px] text-text-tertiary mt-0.5">
                               {item.class_name}
                               {item.image_count > 0 && (
                                 <span> · {item.image_count} image{item.image_count !== 1 ? 's' : ''}</span>
                               )}
                             </p>
                             {errorMsg && (
-                              <p className="text-[11px] text-red-500 flex items-center gap-1 mt-0.5">
-                                <XCircle className="w-3 h-3" />
-                                {errorMsg}
+                              <p className="text-[11px] text-status-rejected flex items-center gap-1 mt-1.5">
+                                <XCircle className="w-3 h-3 flex-shrink-0" />
+                                <span>{errorMsg}</span>
                               </p>
                             )}
                           </div>
+
                           {!isCompleted && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handlePipelineAction(item, pipelineTab) }}
                               disabled={isBusy}
                               className={cn(
-                                'h-[30px] px-3 rounded-[8px] text-[13px] font-medium transition-all duration-fast flex items-center gap-1.5 flex-shrink-0',
-                                'bg-accent text-accent-foreground hover:bg-accent-hover',
-                                'disabled:opacity-50 disabled:cursor-not-allowed',
+                                'h-[32px] px-3.5 rounded-xl text-[13px] font-medium',
+                                'transition-all duration-fast ease-spring',
+                                'flex items-center gap-1.5 flex-shrink-0',
+                                'bg-accent text-accent-foreground',
+                                'hover:bg-accent-hover active:scale-[0.97]',
+                                'shadow-sm hover:shadow-md',
+                                'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
                               )}
                             >
                               {isBusy ? (
@@ -373,11 +398,18 @@ export default function AdminDashboard() {
                               {isBusy ? 'Running…' : config.action}
                             </button>
                           )}
+
                           {isCompleted && (
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/admin/subjects/${item.id}`) }}
-                                className="h-[30px] px-3 rounded-[8px] text-[13px] font-medium transition-all duration-fast flex items-center gap-1.5 bg-background-secondary text-text-primary hover:bg-background-tertiary"
+                                className={cn(
+                                  'h-[32px] px-3.5 rounded-xl text-[13px] font-medium',
+                                  'transition-all duration-fast ease-spring',
+                                  'flex items-center gap-1.5',
+                                  'bg-background-secondary text-text-primary',
+                                  'hover:bg-background-tertiary active:scale-[0.97]',
+                                )}
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 View
@@ -389,24 +421,35 @@ export default function AdminDashboard() {
                                     await imagesApi.downloadImposed(item.id)
                                   } catch { /* handled by method */ }
                                 }}
-                                className="h-[30px] px-3 rounded-[8px] text-[13px] font-medium transition-all duration-fast flex items-center gap-1.5 bg-accent text-accent-foreground hover:bg-accent-hover"
+                                className={cn(
+                                  'h-[32px] px-3.5 rounded-xl text-[13px] font-medium',
+                                  'transition-all duration-fast ease-spring',
+                                  'flex items-center gap-1.5',
+                                  'bg-accent text-accent-foreground',
+                                  'hover:bg-accent-hover active:scale-[0.97]',
+                                  'shadow-sm hover:shadow-md',
+                                )}
                               >
-                                <FileDown className="w-3.5 h-3.5" />
+                                <Download className="w-3.5 h-3.5" />
                                 Download
                               </button>
                             </div>
                           )}
                         </div>
-                        {!isLast && <div className="ml-14 h-px bg-border" />}
                       </div>
                     )
                   })}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <CheckCircle className="w-8 h-8 text-status-completed mb-3" />
-                  <p className="text-[14px] text-text-secondary">
+                <div key={pipelineTab} className="flex flex-col items-center justify-center py-14 text-center animate-fade-in">
+                  <div className="w-14 h-14 rounded-2xl bg-background-secondary flex items-center justify-center mb-4">
+                    <CheckCircle className="w-7 h-7 text-status-completed" />
+                  </div>
+                  <p className="text-[14px] text-text-secondary font-medium">
                     {totalPipelineCount > 0 ? `${totalPipelineCount} subjects in pipeline` : 'Nothing here yet'}
+                  </p>
+                  <p className="text-[12px] text-text-tertiary mt-1">
+                    {totalPipelineCount > 0 ? 'Switch tabs to view the list' : 'Upload scripts to get started'}
                   </p>
                 </div>
               )}
@@ -414,36 +457,40 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* RIGHT */}
-        <div className="lg:col-span-2 space-y-4 animate-fade-in" style={{ animationDelay: '120ms' }}>
+        {/* ─── RIGHT ─── */}
+        <div className="lg:col-span-2 space-y-5">
           {/* Quick Actions */}
-          <div className="bg-surface rounded-[16px] shadow-card">
-            <div className="p-5 pb-0">
+          <div className="bg-surface rounded-2xl shadow-card overflow-hidden animate-fade-in" style={{ animationDelay: '120ms' }}>
+            <div className="px-6 pt-5 pb-3">
               <h3 className="text-[15px] font-semibold text-text-primary">Quick Actions</h3>
             </div>
             {quickActions.map((action, idx) => (
               <div key={action.label}>
                 <div
                   onClick={() => navigate(action.href)}
-                  className="flex items-center gap-3 h-11 px-5 cursor-pointer hover:bg-background-secondary transition-colors duration-fast"
+                  className={cn(
+                    'flex items-center gap-3 h-12 px-6 cursor-pointer',
+                    'transition-all duration-fast ease-standard',
+                    'hover:bg-background-secondary group',
+                  )}
                 >
-                  <div className="w-8 h-8 rounded-sm bg-background-secondary flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-background-secondary flex items-center justify-center flex-shrink-0 group-hover:bg-background-tertiary transition-colors duration-fast">
                     <action.icon className="w-4 h-4 text-text-secondary" />
                   </div>
-                  <span className="text-[14px] text-text-primary flex-1">{action.label}</span>
-                  <ChevronRight className="w-4 h-4 text-text-tertiary" />
+                  <span className="text-[14px] text-text-primary flex-1 font-medium">{action.label}</span>
+                  <ChevronRight className="w-4 h-4 text-text-tertiary group-hover:text-text-secondary transition-colors duration-fast" />
                 </div>
-                {idx < quickActions.length - 1 && <div className="mx-5 h-px bg-border" />}
+                {idx < quickActions.length - 1 && <div className="mx-6 h-px bg-border/60" />}
               </div>
             ))}
           </div>
 
           {/* Recent Uploads */}
-          <div className="bg-surface rounded-[16px] shadow-card p-5">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-surface rounded-2xl shadow-card p-6 animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <div className="flex items-center justify-between mb-5">
               <h3 className="text-[15px] font-semibold text-text-primary">Recent Uploads</h3>
               {data?.recent_uploads?.length > 0 && (
-                <span className="text-[11px] text-text-tertiary bg-background-secondary rounded-full px-2 py-0.5">
+                <span className="text-[11px] font-medium text-text-tertiary bg-background-secondary rounded-full px-2.5 py-0.5">
                   {data.recent_uploads.length}
                 </span>
               )}
@@ -451,23 +498,29 @@ export default function AdminDashboard() {
             {loading ? (
               <div className="space-y-3 animate-pulse">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-12 bg-background-secondary rounded-lg" />
+                  <div key={i} className="h-14 bg-background-secondary rounded-xl skeleton" />
                 ))}
               </div>
             ) : (data?.recent_uploads || []).length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {data.recent_uploads.slice(0, 5).map((u: any, idx: number) => (
-                  <div key={u.id}>
+                  <div key={u.id} className="animate-slide-up" style={{ animationDelay: `${idx * 60}ms` }}>
                     <div
                       onClick={() => navigate(`/admin/subjects/${u.subject_id}`)}
-                      className="flex items-center gap-3 px-2 py-2 rounded-sm hover:bg-background-secondary transition-colors duration-fast cursor-pointer"
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl',
+                        'transition-all duration-fast ease-standard',
+                        'hover:bg-background-secondary cursor-pointer group',
+                      )}
                     >
-                      <div className="w-7 h-7 rounded-sm bg-background-secondary flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-3.5 h-3.5 text-text-secondary" />
+                      <div className="w-8 h-8 rounded-xl bg-accent-subtle flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-text-primary truncate">{u.title}</p>
-                        <p className="text-[11px] text-text-tertiary truncate">
+                        <p className="text-[13px] font-medium text-text-primary truncate leading-snug">
+                          {u.title}
+                        </p>
+                        <p className="text-[11px] text-text-tertiary truncate mt-0.5">
                           {u.subject_name || u.class_name}
                         </p>
                       </div>
@@ -475,15 +528,19 @@ export default function AdminDashboard() {
                         {formatRelativeTime(u.created_at)}
                       </span>
                     </div>
-                    {idx < Math.min(data.recent_uploads.length, 5) - 1 && <div className="ml-9 h-px bg-border" />}
+                    {idx < Math.min(data.recent_uploads.length, 5) - 1 && (
+                      <div className="ml-14 h-px bg-border/50" />
+                    )}
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Upload className="w-8 h-8 text-text-tertiary mb-2" />
-                <p className="text-[14px] text-text-secondary">No uploads yet</p>
-                <p className="text-[12px] text-text-tertiary mt-0.5">Teachers haven't uploaded any scripts</p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-background-secondary flex items-center justify-center mb-3">
+                  <Upload className="w-6 h-6 text-text-tertiary" />
+                </div>
+                <p className="text-[14px] font-medium text-text-secondary">No uploads yet</p>
+                <p className="text-[12px] text-text-tertiary mt-1">Teachers haven't uploaded any scripts</p>
               </div>
             )}
           </div>

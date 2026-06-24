@@ -28,8 +28,8 @@ function CircularProgress({ pct, size = 20 }: { pct: number; size?: number }) {
         strokeWidth="2" strokeLinecap="round"
         strokeDasharray={circ} strokeDashoffset={pct >= 100 ? 0 : offset}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        className={pct > 0 && pct < 100 ? 'animate-[spin_1.5s_linear_infinite]' : ''}
-        style={pct > 0 && pct < 100 ? { transformOrigin: 'center', animation: 'spin 1.5s linear infinite' } : undefined}
+        className={pct > 0 && pct < 100 ? 'animate-spin' : ''}
+        style={pct > 0 && pct < 100 ? { transformOrigin: 'center' } : undefined}
       />
       {pct > 0 && pct < 100 && (
         <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="middle"
@@ -38,6 +38,46 @@ function CircularProgress({ pct, size = 20 }: { pct: number; size?: number }) {
         </text>
       )}
     </svg>
+  )
+}
+
+/* ─── Apple-style custom select ─── */
+function SelectWrapper({ label, value, onChange, options, disabled, placeholder }: {
+  label: string
+  value: string | number
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+  options: { id: number; name: string }[]
+  disabled?: boolean
+  placeholder: string
+}) {
+  return (
+    <div>
+      <label className="block text-[13px] font-medium text-text-secondary mb-1.5 tracking-wide">{label}</label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          className={cn(
+            'w-full h-11 pl-3.5 pr-10 text-[15px] bg-background-secondary border border-border rounded-xl text-text-primary',
+            'outline-none appearance-none cursor-pointer',
+            'transition-all duration-fast',
+            'focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.12)]',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            'hover:border-text-tertiary/40',
+          )}
+        >
+          <option value="" disabled className="text-text-tertiary">{placeholder}</option>
+          {options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        {/* Custom chevron */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-text-tertiary">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -196,31 +236,43 @@ export default function UploadPage() {
     }
   }
 
+  /* ───── SUCCESS STATE ───── */
   if (completed) {
     return (
-      <div className="max-w-[720px] mx-auto pt-12 animate-fade-in">
-        <div className="bg-surface rounded-[16px] shadow-card p-10 text-center">
-          <svg width="64" height="64" viewBox="0 0 64 64" className="mx-auto mb-5">
-            <circle cx="32" cy="32" r="30" fill="none" stroke="hsl(var(--status-completed))" strokeWidth="2"
-              strokeDasharray="188.5" strokeDashoffset="0" strokeLinecap="round"
-              style={{ animation: 'drawCircle 0.6s var(--ease-decelerate) forwards' }} />
-            <path d="M20 33l8 8 16-16" fill="none" stroke="hsl(var(--status-completed))" strokeWidth="2.5"
-              strokeLinecap="round" strokeLinejoin="round"
-              strokeDasharray="40" strokeDashoffset="40"
-              style={{ animation: 'drawCheck 0.4s 0.5s var(--ease-spring) forwards' }} />
-          </svg>
-          <h2 className="text-[20px] font-semibold text-text-primary">Upload complete</h2>
-          <p className="text-[15px] text-text-secondary mt-1.5">{files.length} script{files.length !== 1 ? 's' : ''} uploaded successfully</p>
-          <div className="flex items-center justify-center gap-3 mt-6">
+      <div className="max-w-[720px] mx-auto pt-16 md:pt-24 animate-fade-in">
+        <div className="bg-surface rounded-2xl shadow-card p-10 md:p-14 text-center">
+          {/* Animated checkmark */}
+          <div className="relative mx-auto mb-6 w-16 h-16">
+            <svg width="64" height="64" viewBox="0 0 64 64" className="mx-auto">
+              <circle
+                cx="32" cy="32" r="30" fill="none" stroke="hsl(var(--status-completed))" strokeWidth="2.5"
+                strokeDasharray="188.5" strokeDashoffset="188.5" strokeLinecap="round"
+                style={{ animation: 'drawCircle 0.6s var(--ease-decelerate) forwards' }}
+              />
+              <path
+                d="M20 33l8 8 16-16" fill="none" stroke="hsl(var(--status-completed))" strokeWidth="3"
+                strokeLinecap="round" strokeLinejoin="round"
+                strokeDasharray="40" strokeDashoffset="40"
+                style={{ animation: 'drawCheck 0.4s 0.5s var(--ease-spring) forwards' }}
+              />
+            </svg>
+          </div>
+
+          <h2 className="text-[22px] font-semibold text-text-primary tracking-tight">Upload complete</h2>
+          <p className="text-[15px] text-text-secondary mt-1.5">
+            {files.length} script{files.length !== 1 ? 's' : ''} uploaded successfully
+          </p>
+
+          <div className="flex items-center justify-center gap-3 mt-8">
             <button
               onClick={() => navigate('/uploads')}
-              className="h-10 px-5 bg-accent text-accent-foreground text-[14px] font-medium rounded-[10px] hover:bg-accent-hover transition-colors duration-fast"
+              className="relative h-11 px-6 bg-accent text-accent-foreground text-[14px] font-medium rounded-[12px] hover-scale hover:brightness-110 transition-all duration-fast shadow-sm active:scale-[0.97]"
             >
               View My Uploads
             </button>
             <button
               onClick={() => { setCompleted(false); setFiles([]); setFileStatuses({}) }}
-              className="h-10 px-5 bg-background-secondary text-text-primary text-[14px] font-medium rounded-[10px] hover:bg-background-tertiary transition-colors duration-fast"
+              className="relative h-11 px-6 bg-background-secondary text-text-primary text-[14px] font-medium rounded-[12px] hover:bg-background-tertiary transition-all duration-fast hover-scale active:scale-[0.97]"
             >
               Upload More
             </button>
@@ -230,23 +282,33 @@ export default function UploadPage() {
     )
   }
 
+  /* ───── MAIN VIEW ───── */
   return (
-    <div className="max-w-[720px] mx-auto animate-fade-in space-y-6">
+    <div className="max-w-[720px] mx-auto animate-fade-in space-y-5">
+      {/* Error alert */}
       {error && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded-[12px] bg-status-rejected-bg border border-status-rejected/20 text-status-rejected text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {error}
+        <div
+          className="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-status-rejected-bg border-l-4 border-status-rejected text-status-rejected text-sm animate-slide-down"
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Section 1 — Exam Details */}
-      <div className={cn('bg-surface rounded-[16px] shadow-card p-7 transition-opacity duration-fast', uploading && 'opacity-50 pointer-events-none')}>
-        <h2 className="text-[17px] font-semibold text-text-primary mb-6">Exam Details</h2>
+      {/* ─── Card 1: Exam Details ─── */}
+      <div
+        className={cn(
+          'bg-surface rounded-2xl shadow-card p-7 transition-all duration-fast',
+          uploading && 'opacity-50 pointer-events-none',
+        )}
+        style={{ animation: 'fadeIn 0.3s var(--ease-spring) both' }}
+      >
+        <h2 className="text-[17px] font-semibold text-text-primary mb-6 tracking-tight">Exam Details</h2>
 
         {loadingAssignments ? (
           <div className="flex items-center gap-3 py-4">
             <div className="w-4 h-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-            <span className="text-[14px] text-text-secondary">Loading your subjects...</span>
+            <span className="text-[14px] text-text-secondary">Loading your subjects…</span>
           </div>
         ) : availableClasses.length === 0 ? (
           <div className="text-center py-8">
@@ -254,40 +316,34 @@ export default function UploadPage() {
             <p className="text-[13px] text-text-tertiary mt-1">Talk to your admin to get assigned to classes and subjects</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
-            <div>
-              <label className="block text-[13px] font-medium text-text-secondary mb-1.5">Class</label>
-              <select
-                value={form.classId ?? ''}
-                onChange={e => setForm(f => ({ classId: Number(e.target.value) || null, subjectId: null }))}
-                className="w-full h-11 px-3 text-[15px] bg-background-secondary border border-border rounded-[12px] text-text-primary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)] appearance-none"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='hsl(0 0% 58%25)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: '36px' }}
-              >
-                <option value="" disabled className="text-text-tertiary">Select class...</option>
-                {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[13px] font-medium text-text-secondary mb-1.5">Subject</label>
-              <select
-                value={form.subjectId ?? ''}
-                onChange={e => setForm(f => ({ ...f, subjectId: Number(e.target.value) || null }))}
-                disabled={!form.classId}
-                className="w-full h-11 px-3 text-[15px] bg-background-secondary border border-border rounded-[12px] text-text-primary outline-none transition-shadow duration-fast focus:border-accent focus:shadow-[0_0_0_3px_hsl(var(--accent)/0.1)] appearance-none disabled:opacity-50"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='hsl(0 0% 58%25)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: '36px' }}
-              >
-                <option value="" disabled className="text-text-tertiary">Select subject...</option>
-                {form.classId && availableSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-5">
+            <SelectWrapper
+              label="Class"
+              value={form.classId ?? ''}
+              onChange={e => setForm(f => ({ classId: Number(e.target.value) || null, subjectId: null }))}
+              options={availableClasses}
+              placeholder="Select class…"
+            />
+            <SelectWrapper
+              label="Subject"
+              value={form.subjectId ?? ''}
+              onChange={e => setForm(f => ({ ...f, subjectId: Number(e.target.value) || null }))}
+              options={form.classId ? availableSubjects : []}
+              disabled={!form.classId}
+              placeholder="Select subject…"
+            />
           </div>
         )}
       </div>
 
-      {/* Section 2 — Upload Scripts */}
-      <div className="bg-surface rounded-[16px] shadow-card p-7">
-        <h2 className="text-[17px] font-semibold text-text-primary mb-5">Upload Scripts</h2>
+      {/* ─── Card 2: Upload Scripts ─── */}
+      <div
+        className="bg-surface rounded-2xl shadow-card p-7"
+        style={{ animation: 'fadeIn 0.3s var(--ease-spring) both', animationDelay: '80ms' }}
+      >
+        <h2 className="text-[17px] font-semibold text-text-primary mb-5 tracking-tight">Upload Scripts</h2>
 
+        {/* Hidden file inputs */}
         <input
           ref={fileRef}
           type="file" multiple accept="image/jpeg,image/png,image/tiff"
@@ -302,45 +358,68 @@ export default function UploadPage() {
         />
 
         {files.length === 0 ? (
+          /* ─── Empty drop zone ─── */
           <div
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
             className={cn(
-              'flex flex-col items-center justify-center py-12 px-6 rounded-[12px] border-2 border-dashed cursor-pointer transition-all duration-fast',
+              'flex flex-col items-center justify-center py-14 px-6 rounded-2xl border-2 border-dashed cursor-pointer select-none',
+              'transition-all duration-200',
               dragOver
-                ? 'border-accent bg-accent/4'
-                : 'border-border hover:border-accent/50 hover:bg-accent/2',
+                ? 'border-accent bg-accent-subtle scale-[1.01]'
+                : 'border-border hover:border-accent/40 hover:bg-accent/[0.02]',
             )}
           >
-            <UploadCloud className={cn('w-10 h-10 transition-colors', dragOver ? 'text-accent' : 'text-text-tertiary')} />
-            <p className={cn('text-[17px] font-medium mt-4', dragOver ? 'text-accent' : 'text-text-primary')}>
+            <div className={cn(
+              'transition-all duration-200',
+              dragOver ? 'scale-110' : '',
+            )}>
+              <UploadCloud className={cn(
+                'w-10 h-10 transition-colors duration-200',
+                dragOver ? 'text-accent' : 'text-text-tertiary',
+              )} />
+            </div>
+            <p className={cn(
+              'text-[17px] font-medium mt-4 transition-colors duration-200',
+              dragOver ? 'text-accent' : 'text-text-primary',
+            )}>
               {dragOver ? 'Release to add files' : 'Drop exam scripts here'}
             </p>
             <p className="text-[14px] text-text-secondary mt-1">or click to browse files</p>
-            <p className="text-xs text-text-tertiary mt-2">JPEG, PNG, or TIFF · Max 10MB per file</p>
+            <p className="text-xs text-text-tertiary mt-2.5">JPEG, PNG, or TIFF · Max 10MB per file</p>
           </div>
         ) : (
+          /* ─── Files present ─── */
           <>
+            {/* "Add more" bar */}
             <div
               onDragOver={handleDrag}
               onDragLeave={handleDrag}
               onDrop={handleDrop}
               onClick={() => addMoreRef.current?.click()}
               className={cn(
-                'flex items-center gap-2.5 h-12 px-4 rounded-[12px] border-2 border-dashed cursor-pointer transition-all duration-fast mb-4',
+                'flex items-center gap-2.5 h-12 px-4 rounded-xl border-2 border-dashed cursor-pointer select-none',
+                'transition-all duration-200 mb-4',
                 dragOver
-                  ? 'border-accent bg-accent/4'
-                  : 'border-border hover:border-accent/50 hover:bg-accent/2',
+                  ? 'border-accent bg-accent-subtle'
+                  : 'border-border hover:border-accent/40 hover:bg-accent/[0.02]',
               )}
             >
-              <UploadCloud className={cn('w-4 h-4 flex-shrink-0', dragOver ? 'text-accent' : 'text-text-secondary')} />
-              <span className={cn('text-[13px]', dragOver ? 'text-accent' : 'text-text-secondary')}>
-                {dragOver ? 'Release to add files' : 'Drag more files or click to browse'}
+              <UploadCloud className={cn(
+                'w-4 h-4 flex-shrink-0 transition-colors duration-200',
+                dragOver ? 'text-accent' : 'text-text-secondary',
+              )} />
+              <span className={cn(
+                'text-[13px] transition-colors duration-200',
+                dragOver ? 'text-accent' : 'text-text-secondary',
+              )}>
+                {dragOver ? 'Release to add files' : 'Add more files'}
               </span>
             </div>
 
+            {/* File list */}
             <div className="space-y-0">
               {files.map((file, i) => {
                 const status = fileStatuses[i]
@@ -352,32 +431,43 @@ export default function UploadPage() {
                     <div
                       className={cn(
                         'flex items-center gap-3 h-[52px] transition-all duration-200',
-                        isRemoving ? 'opacity-0 translate-y-1 h-0 overflow-hidden' : 'animate-fade-in',
+                        isRemoving ? 'opacity-0 scale-95 h-0 overflow-hidden mb-0' : '',
                       )}
-                      style={{ animationDelay: `${i * 50}ms` }}
+                      style={{
+                        animation: isRemoving ? undefined : 'fadeIn 0.25s var(--ease-spring) both',
+                        animationDelay: isRemoving ? undefined : `${i * 50}ms`,
+                      }}
                     >
-                      <div className="w-9 h-9 rounded-sm bg-background-secondary flex items-center justify-center flex-shrink-0">
+                      {/* Thumbnail placeholder */}
+                      <div className="w-9 h-9 rounded-lg bg-background-secondary flex items-center justify-center flex-shrink-0">
                         <Image className="w-5 h-5 text-text-secondary" />
                       </div>
+
+                      {/* Filename + size */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[14px] text-text-primary truncate max-w-[180px]">{file.name}</p>
+                        <p className="text-[14px] font-medium text-text-primary truncate max-w-[200px]">{file.name}</p>
                         <p className="text-xs text-text-tertiary">{formatSize(file.size)}</p>
                       </div>
+
+                      {/* Status indicator */}
                       {uploading ? (
                         isDone ? (
-                          <CheckCircle className="w-5 h-5 text-status-completed flex-shrink-0" />
+                          <CheckCircle className="w-5 h-5 text-status-completed flex-shrink-0 animate-scale-in" />
                         ) : (
                           <CircularProgress pct={isUploading ? status : 0} />
                         )
                       ) : (
                         <button
                           onClick={() => removeFile(i)}
-                          className="w-7 h-7 flex items-center justify-center rounded-sm text-text-tertiary hover:text-text-primary hover:bg-background-tertiary transition-colors duration-fast flex-shrink-0"
+                          className="w-7 h-7 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-background-tertiary transition-all duration-fast flex-shrink-0 active:scale-90"
+                          aria-label={`Remove ${file.name}`}
                         >
                           <X className="w-4 h-4" />
                         </button>
                       )}
                     </div>
+
+                    {/* Divider between rows */}
                     {i < files.length - 1 && !isRemoving && (
                       <div className="h-px bg-border ml-12" />
                     )}
@@ -386,12 +476,13 @@ export default function UploadPage() {
               })}
             </div>
 
+            {/* Clear all */}
             {files.length >= 2 && (
               <div className="flex justify-end mt-3">
                 <button
                   onClick={clearAll}
                   disabled={uploading}
-                  className="text-[13px] text-accent font-medium hover:underline disabled:opacity-50"
+                  className="text-[13px] text-accent font-medium hover:text-accent-hover transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Clear all
                 </button>
@@ -401,29 +492,56 @@ export default function UploadPage() {
         )}
       </div>
 
-      {/* Upload button area */}
-      <div className="flex items-center justify-end gap-4 sticky bottom-0 pb-4 pt-2 bg-background">
-        {files.length > 0 && (
-          <span className="text-[14px] text-text-secondary">{files.length} file{files.length !== 1 ? 's' : ''} selected</span>
-        )}
-        <div className="relative group">
-          <button
-            onClick={handleUpload}
-            disabled={!formComplete || files.length === 0 || uploading}
-            className={cn(
-              'h-11 px-6 text-[14px] font-medium rounded-[10px] transition-all duration-fast flex items-center gap-2',
-              formComplete && files.length > 0 && !uploading
-                ? 'bg-accent text-accent-foreground hover:bg-accent-hover'
-                : 'bg-background-tertiary text-text-disabled cursor-not-allowed',
-            )}
-          >
-            {uploading ? 'Uploading...' : 'Upload'}
-          </button>
-          {(!formComplete || files.length === 0) && !uploading && (
-            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-surface text-text-secondary text-xs px-3 py-1.5 rounded-[8px] shadow-md border border-border whitespace-nowrap">
-              {!formComplete ? 'Select a class and subject first' : 'Add at least one file'}
+      {/* ─── Sticky Bottom Bar ─── */}
+      <div className="sticky bottom-0 pb-4 pt-3 -mx-4 px-4 bg-background/80 backdrop-blur-xl border-t border-border/40">
+        <div className="max-w-[720px] mx-auto flex items-center justify-between gap-4">
+          {/* File count + size */}
+          {files.length > 0 && (
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
+                {files.length} file{files.length !== 1 ? 's' : ''}
+              </span>
+              <span className="text-[12px] text-text-tertiary hidden sm:inline">
+                ({formatSize(totalSize)})
+              </span>
             </div>
           )}
+
+          {/* Invisible spacer when no files (keeps button right-aligned) */}
+          {files.length === 0 && <div />}
+
+          {/* Upload button */}
+          <div className="relative group">
+            <button
+              onClick={handleUpload}
+              disabled={!formComplete || files.length === 0 || uploading}
+              className={cn(
+                'relative h-11 px-7 text-[14px] font-medium rounded-[12px]',
+                'transition-all duration-200 flex items-center gap-2.5',
+                formComplete && files.length > 0 && !uploading
+                  ? 'bg-accent text-accent-foreground shadow-sm hover:shadow-md hover:scale-[1.02] hover:brightness-110 active:scale-[0.97] cursor-pointer'
+                  : 'bg-background-tertiary text-text-disabled cursor-not-allowed',
+              )}
+            >
+              {uploading ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-accent-foreground/30 border-t-accent-foreground animate-spin" />
+                  <span>Uploading…</span>
+                </>
+              ) : (
+                'Upload'
+              )}
+            </button>
+
+            {/* Tooltip */}
+            {(!formComplete || files.length === 0) && !uploading && (
+              <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block animate-scale-in">
+                <div className="bg-surface text-text-secondary text-xs px-3 py-1.5 rounded-xl shadow-lg border border-border/60 whitespace-nowrap">
+                  {!formComplete ? 'Select a class and subject first' : 'Add at least one file'}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

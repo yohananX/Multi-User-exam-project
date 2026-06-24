@@ -3,23 +3,52 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
+/**
+ * Scribe button variants — Apple/Google-level premium design system.
+ *
+ * Variants:
+ *   default     — Solid primary (already has shadow-sm + active:scale-[0.97])
+ *   destructive — Red destructive action
+ *   outline     — Bordered, transparent background
+ *   secondary   — Muted solid
+ *   ghost       — No border/background, shows on hover
+ *   link        — Text-only with underline
+ *   premium     — Vibrant gradient (accent → purple), Apple-esque hero CTA
+ *   glass       — Frosted glass with backdrop blur
+ *
+ * Sizes: sm, default, lg, xl, 2xl (hero), icon, icon-sm
+ */
 const buttonVariants = cva(
   'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 select-none',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.97]',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline: 'border border-input bg-transparent hover:bg-accent/10 hover:text-accent',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-accent/10 hover:text-accent',
-        link: 'text-primary underline-offset-4 hover:underline',
+        default:
+          'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.97]',
+        destructive:
+          'bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.97]',
+        outline:
+          'border border-input bg-transparent hover:bg-accent/10 hover:text-accent active:scale-[0.97]',
+        secondary:
+          'bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-[0.97]',
+        ghost:
+          'hover:bg-accent/10 hover:text-accent active:scale-[0.97]',
+        link:
+          'text-primary underline-offset-4 hover:underline',
+        /** Premium gradient button — vibrant Apple-style accent-to-purple gradient */
+        premium:
+          'bg-gradient-to-br from-accent to-[hsl(260_100%_60%)] text-accent-foreground shadow-md hover:shadow-lg hover:brightness-110 active:scale-[0.97]',
+        /** Frosted glass button — transparent with backdrop blur */
+        glass:
+          'glass text-foreground hover:bg-surface/80 active:scale-[0.97]',
       },
       size: {
         default: 'h-9 px-4 py-2',
         sm: 'h-8 rounded-lg px-3 text-xs',
         lg: 'h-10 rounded-lg px-6',
         xl: 'h-12 rounded-xl px-8 text-base',
+        /** Hero-sized for landing / CTA sections */
+        '2xl': 'h-14 rounded-xl px-10 text-lg',
         icon: 'h-9 w-9',
         'icon-sm': 'h-8 w-8',
       },

@@ -24,14 +24,14 @@ function relativeTime(dateStr: string): string {
 
 function SkeletonCard() {
   return (
-    <div className="bg-surface shadow-card rounded-[16px] p-6 mb-3 animate-pulse">
+    <div className="glass-card p-6 mb-3 animate-pulse">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-3 flex-1">
-          <div className="h-5 w-[200px] rounded-sm bg-background-tertiary" />
-          <div className="h-3.5 w-[150px] rounded-sm bg-background-tertiary" />
-          <div className="h-3 w-[120px] rounded-sm bg-background-tertiary" />
+          <div className="h-5 w-[200px] skeleton rounded-md" />
+          <div className="h-3.5 w-[150px] skeleton rounded-md" />
+          <div className="h-3 w-[120px] skeleton rounded-md" />
         </div>
-        <div className="h-10 w-[140px] rounded-[10px] bg-background-tertiary flex-shrink-0" />
+        <div className="h-10 w-[140px] skeleton rounded-[10px] flex-shrink-0" />
       </div>
     </div>
   )
@@ -112,18 +112,20 @@ export default function DownloadsPage() {
   }
 
   return (
-    <div className="max-w-[800px] mx-auto animate-fade-in">
-      {/* Page heading */}
-      <div className="mb-8">
+    <div className="max-w-[800px] mx-auto p-6">
+      {/* ── Header ── */}
+      <div className="mb-8 animate-fade-in">
         <h1 className="text-[28px] font-bold tracking-tight text-text-primary">Downloads</h1>
         <p className="text-[15px] text-text-secondary mt-1">
-          {downloads.length === 0 ? 'No documents available yet' : `${downloads.length} document(s) ready`}
+          {downloads.length === 0
+            ? 'No documents available yet'
+            : `${downloads.length} document${downloads.length !== 1 ? 's' : ''} ready for download`}
         </p>
       </div>
 
-      {/* Tab bar */}
-      <div className="mb-6">
-        <div className="inline-flex items-center bg-background-secondary rounded-[10px] p-0.5 gap-0">
+      {/* ── Segmented Tab Control ── */}
+      <div className="mb-8 animate-slide-up">
+        <div className="inline-flex items-center bg-background-secondary/70 backdrop-blur-sm rounded-[14px] p-1 gap-0 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]">
           {tabs.map(tab => {
             const count = tab.key === 'new' ? newItems.length
               : tab.key === 'downloaded' ? downloadedItems.length
@@ -133,20 +135,30 @@ export default function DownloadsPage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  'h-[30px] px-4 text-[13px] rounded-[8px] transition-all duration-150',
+                  'h-[34px] px-5 text-[14px] font-medium rounded-[10px] transition-all duration-200 flex items-center gap-2',
                   activeTab === tab.key
-                    ? 'bg-surface shadow-sm text-text-primary font-medium'
-                    : 'bg-transparent text-text-secondary',
+                    ? 'bg-surface text-text-primary shadow-sm'
+                    : 'bg-transparent text-text-secondary hover:text-text-primary',
                 )}
               >
-                {tab.label} ({count})
+                {tab.label}
+                {count > 0 && (
+                  <span className={cn(
+                    'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold',
+                    activeTab === tab.key
+                      ? 'bg-accent text-accent-foreground'
+                      : 'bg-background-tertiary text-text-tertiary',
+                  )}>
+                    {count}
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Document list */}
+      {/* ── Document List ── */}
       {loading ? (
         <div className="space-y-3">
           <SkeletonCard />
@@ -155,45 +167,60 @@ export default function DownloadsPage() {
         </div>
       ) : visibleItems.length > 0 ? (
         <div className="space-y-3">
-          {visibleItems.map(d => {
+          {visibleItems.map((d, i) => {
             const isNew = d.status === 'new'
             const isDownloading = downloadingId === d.id
             const error = errors[d.id]
             return (
-              <div key={d.id} className="bg-surface shadow-card rounded-[16px] p-6">
+              <div
+                key={d.id}
+                className="glass-card p-6 hover:shadow-lg hover:border-accent/20 transition-all duration-200"
+                style={{
+                  animation: `slideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both`,
+                  animationDelay: `${i * 45}ms`,
+                }}
+              >
                 <div className="flex items-start justify-between gap-6">
                   {/* Left content */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2.5 mb-1.5">
                       <h3 className="text-[17px] font-semibold text-text-primary truncate">
                         {d.subject_name || 'Unknown Subject'}
                       </h3>
                       {isNew && (
-                        <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-accent text-accent-foreground ml-2 flex-shrink-0">
+                        <span className="inline-flex items-center px-2.5 py-0.5 text-[10px] font-bold tracking-wider rounded-full bg-accent text-accent-foreground flex-shrink-0 uppercase">
                           NEW
                         </span>
                       )}
                     </div>
-                    <p className="text-[14px] text-text-secondary mb-1">
+                    <p className="text-[14px] text-text-secondary mb-2">
                       {d.class_name || 'Unknown Class'}
                       {d.term ? <>, {d.term}</> : ''}
                       {d.exam_type ? <> · {d.exam_type}</> : ''}
                     </p>
-                    <p className="flex items-center gap-1 text-[12px] text-text-tertiary">
+                    <p className="flex items-center gap-1.5 text-[13px]">
                       {isNew ? (
                         <>
-                          <Clock className="w-3 h-3" />
-                          Released {relativeTime(d.released_at)}
+                          <Clock className="w-3.5 h-3.5 text-text-tertiary" />
+                          <span className="text-text-tertiary">
+                            Released {relativeTime(d.released_at)}
+                          </span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="w-3 h-3 text-[hsl(var(--status-completed))]" />
+                          <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-completed))]" />
                           <span className="text-[hsl(var(--status-completed))]">
                             Downloaded {d.downloaded_at ? relativeTime(d.downloaded_at) : ''}
                           </span>
                         </>
                       )}
                     </p>
+                    {error && (
+                      <p className="flex items-center gap-1 text-[12px] text-status-rejected mt-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-status-rejected" />
+                        {error}
+                      </p>
+                    )}
                   </div>
 
                   {/* Right actions */}
@@ -202,9 +229,9 @@ export default function DownloadsPage() {
                       onClick={() => handleDownload(d)}
                       disabled={isDownloading}
                       className={cn(
-                        'h-10 px-5 rounded-[10px] text-[14px] font-medium transition-all flex items-center gap-2',
-                        'bg-accent text-accent-foreground hover:brightness-95',
-                        'disabled:opacity-40 disabled:cursor-not-allowed',
+                        'h-11 px-6 rounded-[12px] text-[14px] font-medium transition-all duration-200 flex items-center gap-2',
+                        'bg-accent text-accent-foreground hover:brightness-95 active:scale-[0.97]',
+                        'disabled:opacity-40 disabled:cursor-not-allowed shadow-sm',
                       )}
                     >
                       {isDownloading ? (
@@ -214,13 +241,10 @@ export default function DownloadsPage() {
                       )}
                       {isDownloading ? 'Downloading…' : 'Download PDF'}
                     </button>
-                    {error && (
-                      <p className="text-[12px] text-status-rejected">{error}</p>
-                    )}
                     {!isNew && (
                       <button
                         onClick={() => handleDownload(d)}
-                        className="text-[13px] text-accent bg-transparent border-none cursor-pointer hover:underline"
+                        className="text-[13px] text-accent bg-transparent border-none cursor-pointer hover:underline transition-all"
                       >
                         Download again
                       </button>
@@ -232,25 +256,31 @@ export default function DownloadsPage() {
           })}
         </div>
       ) : (
-        /* Empty states */
-        <div className="bg-surface shadow-card rounded-[16px] py-16 text-center">
+        /* ── Empty States ── */
+        <div className="glass-card py-20 text-center animate-scale-in">
           {activeTab === 'new' ? (
             <>
-              <CheckCircle className="w-10 h-10 text-[hsl(var(--status-completed))] mx-auto mb-4" />
+              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--status-completed-bg))] flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-8 h-8 text-[hsl(var(--status-completed))]" />
+              </div>
               <p className="text-[17px] font-medium text-text-primary mb-1">You're all caught up</p>
               <p className="text-[14px] text-text-secondary">No new documents to download.</p>
             </>
           ) : activeTab === 'downloaded' ? (
             <>
-              <Download className="w-10 h-10 text-text-tertiary mx-auto mb-4" />
+              <div className="w-16 h-16 rounded-2xl bg-background-secondary flex items-center justify-center mx-auto mb-5">
+                <Download className="w-8 h-8 text-text-tertiary" />
+              </div>
               <p className="text-[17px] font-medium text-text-primary mb-1">No downloads yet</p>
               <p className="text-[14px] text-text-secondary">Documents you download will appear here.</p>
             </>
           ) : (
             <>
-              <FolderOpen className="w-10 h-10 text-text-tertiary mx-auto mb-4" />
+              <div className="w-16 h-16 rounded-2xl bg-background-secondary flex items-center justify-center mx-auto mb-5">
+                <FolderOpen className="w-8 h-8 text-text-tertiary" />
+              </div>
               <p className="text-[17px] font-medium text-text-primary mb-1">No documents available yet</p>
-              <p className="text-[14px] text-text-secondary">
+              <p className="text-[14px] text-text-secondary max-w-sm mx-auto">
                 Your administrator will release exam PDFs here once they've been processed.
               </p>
             </>

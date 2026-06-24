@@ -1,13 +1,16 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   BookOpen, Clock, CheckCircle, MessageSquare, Zap, XCircle,
   Upload, FolderOpen, FileText, ChevronRight, Bell, Check, Eye,
+  Inbox,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { dashboardApi } from '@/api/endpoints'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+
+// ─── Helpers ────────────────────────────────────────────────────────
 
 function useGreeting() {
   return useMemo(() => {
@@ -47,15 +50,54 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; bg:
   rejected: { icon: XCircle, color: 'text-status-rejected', bg: 'bg-status-rejected-bg', label: 'Rejected' },
 }
 
+// ─── Animated Number (count-up) ─────────────────────────────────────
+
+function AnimatedNumber({ value, enabled = true, className }: { value: number; enabled?: boolean; className?: string }) {
+  const [display, setDisplay] = useState(0)
+  const rafRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!enabled) {
+      setDisplay(value)
+      return
+    }
+
+    const duration = 700
+    const start = performance.now()
+    const from = 0
+
+    const animate = (now: number) => {
+      const elapsed = now - start
+      const progress = Math.min(elapsed / duration, 1)
+      // Cubic ease-out for premium feel
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(from + (value - from) * eased))
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate)
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(animate)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, enabled])
+
+  return <span className={className}>{display}</span>
+}
+
+// ─── Stat Card Skeleton ─────────────────────────────────────────────
+
 function StatCardSkeleton() {
   return (
-    <div className="bg-surface rounded-[16px] p-5 shadow-card animate-pulse">
-      <div className="w-9 h-9 rounded-sm bg-background-tertiary shimmer mb-4" />
-      <div className="w-16 h-8 rounded bg-background-tertiary shimmer mb-2" />
-      <div className="w-20 h-3 rounded bg-background-tertiary shimmer" />
+    <div className="bg-surface rounded-2xl p-6 shadow-card animate-pulse">
+      <div className="w-10 h-10 rounded-xl bg-background-tertiary shimmer mb-4" />
+      <div className="w-20 h-8 rounded bg-background-tertiary shimmer mb-2" />
+      <div className="w-24 h-3 rounded bg-background-tertiary shimmer" />
     </div>
   )
 }
+
+// ─── Main Component ─────────────────────────────────────────────────
 
 export default function TeacherDashboard() {
   const { user } = useAuth()
@@ -222,11 +264,11 @@ export default function TeacherDashboard() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <p className="text-[15px] text-text-secondary">Couldn't load your dashboard. Try refreshing.</p>
+      <div className="flex flex-col items-center justify-center h-64 gap-3 animate-fade-in">
+        <p className="text-base text-text-secondary">Couldn't load your dashboard. Try refreshing.</p>
         <button
           onClick={fetchData}
-          className="text-sm text-accent font-medium px-4 py-1.5 rounded-sm border border-transparent hover:border-border transition-colors duration-fast"
+          className="text-sm text-accent font-medium px-5 py-2 rounded-xl border border-border hover:bg-accent-subtle transition-all duration-fast"
         >
           Retry
         </button>
@@ -235,17 +277,22 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <div className="max-w-6xl animate-fade-in">
-      {/* Section 1 — Greeting + date */}
-      <div className="mb-8 animate-fade-in">
-        <h1 className="text-[28px] font-bold tracking-tight text-text-primary">
+    <div className="max-w-6xl mx-auto">
+      {/* ─── Greeting Section ─── */}
+      <div className="mb-10">
+        <h1 className="text-3xl font-bold tracking-tight text-text-primary opacity-0 animate-fade-in">
           {greeting}, {firstName}
         </h1>
-        <p className="text-[15px] text-text-secondary mt-1">{DateStr}</p>
+        <p
+          className="text-sm text-text-secondary mt-1.5 opacity-0 animate-fade-in"
+          style={{ animationDelay: '100ms' }}
+        >
+          {DateStr}
+        </p>
       </div>
 
-      {/* Section 2 — Stat strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* ─── Stat Cards ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
         {loading ? (
           <>
             <StatCardSkeleton />
@@ -256,7 +303,6 @@ export default function TeacherDashboard() {
         ) : (
           statCards.map((stat, i) => {
             const Icon = stat.icon
-            const isPurple = i === 3
             const colors = [
               { bg: 'bg-accent-subtle', icon: 'text-accent', inline: undefined },
               { bg: 'bg-status-pending-bg', icon: 'text-status-pending', inline: undefined },
@@ -267,66 +313,75 @@ export default function TeacherDashboard() {
             return (
               <div
                 key={stat.label}
-                className="bg-surface rounded-[16px] p-5 shadow-card transition-all duration-200 ease-apple hover:-translate-y-[2px] hover:shadow-lg animate-fade-in"
+                className="bg-surface rounded-2xl p-6 shadow-card transition-all duration-normal ease-apple hover:-translate-y-0.5 hover:shadow-lg opacity-0 animate-fade-in"
                 style={{ animationDelay: `${i * 80}ms` }}
               >
                 <div
-                  className={cn('w-9 h-9 rounded-sm flex items-center justify-center mb-4', c.bg)}
-                  style={c.inline ? { backgroundColor: c.inline.bg } : undefined}
+                  className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center mb-4',
+                    c.bg,
+                  )}
+                  style={{
+                    ...(c.inline ? { backgroundColor: c.inline.bg } : {}),
+                    boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.35)',
+                  }}
                 >
                   <Icon
                     className={cn('w-5 h-5', c.icon)}
                     style={c.inline ? { color: c.inline.icon } : undefined}
                   />
                 </div>
-                <p className="text-[32px] font-bold tracking-tight text-text-primary leading-none mb-1">
-                  {stat.value}
-                </p>
-                <p className="text-[13px] text-text-secondary font-normal">{stat.label}</p>
+                <AnimatedNumber
+                  value={stat.value}
+                  enabled={!loading}
+                  className="text-3xl font-bold tracking-tight text-text-primary leading-none mb-1"
+                />
+                <p className="text-sm text-text-secondary font-normal">{stat.label}</p>
               </div>
             )
           })
         )}
       </div>
 
-      {/* Section 3 — Two-column layout */}
+      {/* ─── Two-Column Layout ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* LEFT COLUMN — Recent Activity & Live Notifications */}
+        {/* ── LEFT COLUMN ── */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Recent Uploads Feed */}
-          <div className="animate-fade-in">
+
+          {/* ── Recent Uploads Feed ── */}
+          <div className="opacity-0 animate-fade-in" style={{ animationDelay: '160ms' }}>
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-[17px] font-semibold text-text-primary">Recent Uploads</h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-semibold text-text-primary">Recent Uploads</h2>
                 {recentActivity.length > 0 && (
-                  <span className="text-[11px] text-text-tertiary bg-background-secondary rounded-full px-2 py-0.5">
-                    {recentActivity.length} items
+                  <span className="text-xs text-text-tertiary bg-background-secondary rounded-full px-2.5 py-0.5 font-medium">
+                    {recentActivity.length}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => navigate('/uploads')}
-                className="text-[13px] text-accent font-medium hover:underline"
+                className="text-sm text-accent font-medium hover:opacity-80 transition-opacity"
               >
                 View all
               </button>
             </div>
 
             {loading ? (
-              <div className="space-y-1">
+              <div className="bg-surface rounded-2xl shadow-card p-4 space-y-1">
                 {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 animate-pulse">
-                    <div className="w-8 h-8 rounded-full bg-background-tertiary shimmer flex-shrink-0" />
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="w-32 h-3 rounded bg-background-tertiary shimmer" />
-                      <div className="w-20 h-2.5 rounded bg-background-tertiary shimmer" />
+                  <div key={i} className="flex items-center gap-3 px-3 py-3 animate-pulse">
+                    <div className="w-10 h-10 rounded-full bg-background-tertiary shimmer flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="w-36 h-3 rounded bg-background-tertiary shimmer" />
+                      <div className="w-24 h-2.5 rounded bg-background-tertiary shimmer" />
                     </div>
-                    <div className="w-10 h-2.5 rounded bg-background-tertiary shimmer" />
+                    <div className="w-14 h-5 rounded-full bg-background-tertiary shimmer" />
                   </div>
                 ))}
               </div>
             ) : recentActivity.length > 0 ? (
-              <div className="bg-surface rounded-[16px] shadow-card p-4 space-y-1">
+              <div className="bg-surface rounded-2xl shadow-card">
                 {recentActivity.map((item: any, idx: number) => {
                   const config = statusConfig[item.status] || statusConfig.pending
                   const Icon = config.icon
@@ -334,77 +389,84 @@ export default function TeacherDashboard() {
                     <div key={item.id}>
                       <div
                         onClick={() => navigate(`/subjects/${item.subject_id}`)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-background-secondary transition-all duration-fast cursor-pointer animate-fade-in"
-                        style={{ animationDelay: `${idx * 40}ms` }}
+                        className="flex items-center gap-3.5 px-5 py-3.5 cursor-pointer transition-all duration-fast hover:bg-background-secondary opacity-0 animate-fade-in"
+                        style={{ animationDelay: `${idx * 60}ms` }}
                       >
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-background-secondary">
+                        <div className={cn(
+                          'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                          config.bg,
+                        )}>
                           <Icon className={cn('w-4 h-4', config.color)} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-text-primary truncate">
+                          <p className="text-sm font-medium text-text-primary truncate">
                             {item.subject_name}
                           </p>
-                          <p className="text-[13px] text-text-secondary">
-                            {item.class_name} <span className="text-text-tertiary">·</span> Page {item.number}
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            {item.class_name} <span className="text-text-tertiary mx-1">·</span> Page {item.number}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <span className={cn(
-                            'rounded-full text-[11px] font-medium px-2 py-0.5',
+                            'rounded-full text-xs font-medium px-2.5 py-0.5',
                             getStatusStyle(item.status),
                           )}>
                             {config.label}
                           </span>
-                          <p className="text-xs text-text-tertiary">
+                          <p className="text-xs text-text-tertiary whitespace-nowrap">
                             {item.created_at ? formatRelativeTime(item.created_at) : ''}
                           </p>
                         </div>
                       </div>
                       {idx < recentActivity.length - 1 && (
-                        <div className="ml-11 h-px bg-border" />
+                        <div className="ml-[72px] h-px bg-border" />
                       )}
                     </div>
                   )
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 bg-surface rounded-[16px] shadow-card">
-                <FolderOpen className="w-10 h-10 text-text-tertiary mb-3" />
-                <p className="text-[15px] text-text-secondary mb-1">No uploads yet</p>
-                <p className="text-[13px] text-text-tertiary">Upload your first exam to get started</p>
+              <div className="flex flex-col items-center justify-center py-14 bg-surface rounded-2xl shadow-card">
+                <div className="w-12 h-12 rounded-xl bg-background-secondary flex items-center justify-center mb-4">
+                  <FolderOpen className="w-6 h-6 text-text-tertiary" />
+                </div>
+                <p className="text-base text-text-secondary mb-1 font-medium">No uploads yet</p>
+                <p className="text-sm text-text-tertiary">Upload your first exam to get started</p>
               </div>
             )}
           </div>
 
-          {/* Notifications Card */}
-          <div className="bg-surface rounded-[16px] shadow-card p-5 animate-fade-in">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
+          {/* ── Notifications Card ── */}
+          <div className="bg-surface rounded-2xl shadow-card p-6 opacity-0 animate-fade-in" style={{ animationDelay: '240ms' }}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
                 <div className="relative">
-                  <Bell className="w-4 h-4 text-accent" />
+                  <div className="w-9 h-9 rounded-lg bg-accent-subtle flex items-center justify-center">
+                    <Bell className="w-4 h-4 text-accent" />
+                  </div>
                   {unreadMessages > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-status-rejected animate-pulse" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-status-rejected ring-2 ring-surface animate-pulse" />
                   )}
                 </div>
-                <h3 className="text-[15px] font-semibold text-text-primary">Notifications & Messages</h3>
-                {unreadMessages > 0 && (
-                  <span className="text-[11px] font-semibold text-accent-foreground bg-accent rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                    {unreadMessages}
-                  </span>
-                )}
+                <div>
+                  <h3 className="text-base font-semibold text-text-primary">Notifications & Messages</h3>
+                  {unreadMessages > 0 && (
+                    <p className="text-xs text-text-tertiary mt-0.5">{unreadMessages} unread</p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => navigate('/messages')}
-                className="text-[13px] text-accent font-medium hover:underline"
+                className="text-sm text-accent font-medium hover:opacity-80 transition-opacity"
               >
                 Open Inbox
               </button>
             </div>
 
             {loadingNotifications ? (
-              <div className="space-y-3 py-3 animate-pulse">
-                <div className="h-[68px] bg-background-secondary rounded-[12px]" />
-                <div className="h-[68px] bg-background-secondary rounded-[12px]" />
+              <div className="space-y-3">
+                <div className="h-[72px] bg-background-secondary rounded-xl animate-pulse" />
+                <div className="h-[72px] bg-background-secondary rounded-xl animate-pulse" />
               </div>
             ) : notifications.length > 0 ? (
               <div className="space-y-2">
@@ -412,44 +474,47 @@ export default function TeacherDashboard() {
                   <div
                     key={n.id}
                     className={cn(
-                      "flex items-start gap-3 p-3 rounded-[12px] border transition-all duration-fast animate-fade-in",
+                      "flex items-start gap-3.5 p-3.5 rounded-xl border transition-all duration-fast opacity-0 animate-fade-in",
                       n.read
                         ? "bg-surface border-border/50"
-                        : "bg-accent/4 border-accent/20 shadow-[0_0_0_1px_hsl(var(--accent)/0.08)_inset]",
+                        : "bg-accent-subtle/40 border-accent/20 shadow-[inset_0_0_0_1px_hsl(var(--accent)/0.06)]",
                     )}
-                    style={{ animationDelay: `${idx * 50}ms` }}
+                    style={{ animationDelay: `${idx * 60}ms` }}
                   >
                     <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                      "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
                       n.read ? "bg-background-secondary" : "bg-accent/10",
                     )}>
                       <MessageSquare className={cn("w-4 h-4", n.read ? "text-text-tertiary" : "text-accent")} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={cn("text-[13px] truncate", n.read ? "text-text-secondary" : "text-text-primary font-semibold")}>
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <p className={cn(
+                          "text-sm truncate",
+                          n.read ? "text-text-secondary" : "text-text-primary font-semibold",
+                        )}>
                           {n.title}
                         </p>
-                        <span className="text-[11px] text-text-tertiary flex-shrink-0">
+                        <span className="text-xs text-text-tertiary flex-shrink-0">
                           {formatRelativeTime(n.created_at)}
                         </span>
                       </div>
-                      <p className="text-[12px] text-text-secondary mt-0.5 leading-snug line-clamp-2">{n.description}</p>
+                      <p className="text-xs text-text-secondary leading-snug line-clamp-2">{n.description}</p>
 
                       {!n.read && (
-                        <div className="flex gap-3 mt-2">
+                        <div className="flex gap-3 mt-2.5">
                           <button
                             onClick={() => markAsRead(n.id)}
-                            className="flex items-center gap-1 text-[11px] font-medium text-accent hover:opacity-80 transition-opacity"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:opacity-80 transition-opacity"
                           >
-                            <Check className="w-3 h-3" />
+                            <Check className="w-3.5 h-3.5" />
                             Mark read
                           </button>
                           <button
                             onClick={() => navigate('/messages')}
-                            className="flex items-center gap-1 text-[11px] font-medium text-text-secondary hover:text-text-primary transition-colors"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
                           >
-                            <Eye className="w-3 h-3" />
+                            <Eye className="w-3.5 h-3.5" />
                             Reply
                           </button>
                         </div>
@@ -459,95 +524,114 @@ export default function TeacherDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Bell className="w-8 h-8 text-text-tertiary mb-2" />
-                <p className="text-[14px] text-text-secondary">All caught up!</p>
-                <p className="text-[12px] text-text-tertiary mt-0.5">No new notifications or messages.</p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <div className="w-12 h-12 rounded-xl bg-background-secondary flex items-center justify-center mb-3">
+                  <Inbox className="w-6 h-6 text-text-tertiary" />
+                </div>
+                <p className="text-base text-text-secondary font-medium">All caught up!</p>
+                <p className="text-sm text-text-tertiary mt-0.5">No new notifications or messages.</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* CARD A — Quick Actions */}
+        {/* ── RIGHT COLUMN ── */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* ── Quick Actions ── */}
           {!loading && (
-            <div className="bg-surface rounded-[16px] shadow-card">
-              <div className="p-5 pb-0">
-                <h3 className="text-[15px] font-semibold text-text-primary">Quick Actions</h3>
+            <div className="bg-surface rounded-2xl shadow-card opacity-0 animate-fade-in" style={{ animationDelay: '200ms' }}>
+              <div className="px-6 pt-5 pb-1">
+                <h3 className="text-base font-semibold text-text-primary">Quick Actions</h3>
               </div>
-              {quickActions.map((action, idx) => (
-                <div key={action.label}>
+              <div className="px-2 pb-2">
+                {quickActions.map((action, idx) => (
                   <div
+                    key={action.label}
                     onClick={() => navigate(action.href)}
-                    className="flex items-center gap-3 h-11 px-5 cursor-pointer hover:bg-background-secondary transition-colors duration-fast"
+                    className="flex items-center gap-3.5 rounded-xl px-4 py-3 cursor-pointer transition-all duration-fast hover:bg-accent-subtle/40 group"
                   >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-sm flex items-center justify-center flex-shrink-0 transition-colors duration-fast',
-                        action.primary
-                          ? 'bg-accent-subtle group-hover:bg-accent-subtle'
-                          : 'bg-background-secondary',
-                      )}
-                    >
-                      <action.icon
-                        className={cn(
-                          'w-4 h-4',
-                          action.primary ? 'text-accent' : 'text-text-secondary',
-                        )}
-                      />
+                    <div className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-fast',
+                      action.primary
+                        ? 'bg-accent text-accent-foreground shadow-sm shadow-accent/20'
+                        : 'bg-background-secondary group-hover:bg-background-tertiary',
+                    )}>
+                      <action.icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[14px] text-text-primary flex-1">{action.label}</span>
-                    <ChevronRight className="w-4 h-4 text-text-tertiary" />
+                    <span className={cn(
+                      'text-sm flex-1 font-medium',
+                      action.primary ? 'text-accent' : 'text-text-primary',
+                    )}>
+                      {action.label}
+                    </span>
+                    <ChevronRight className={cn(
+                      'w-4 h-4 transition-all duration-fast',
+                      action.primary ? 'text-accent' : 'text-text-tertiary group-hover:text-text-secondary',
+                    )} />
                   </div>
-                  {idx < quickActions.length - 1 && <div className="mx-5 h-px bg-border" />}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
-          {/* CARD B — Subjects Overview */}
+          {/* ── Your Subjects ── */}
           {!loading && (
-            <div className="bg-surface rounded-[16px] shadow-card">
-              <div className="p-5 pb-0">
-                <h3 className="text-[15px] font-semibold text-text-primary">Your Subjects</h3>
+            <div className="bg-surface rounded-2xl shadow-card opacity-0 animate-fade-in" style={{ animationDelay: '280ms' }}>
+              <div className="px-6 pt-5 pb-1">
+                <h3 className="text-base font-semibold text-text-primary">Your Subjects</h3>
               </div>
               {subjects.length > 0 ? (
-                <div className="p-5 pt-3">
+                <div className="px-4 pt-3 pb-4">
                   {subjects.slice(0, 5).map((s: any, idx: number) => (
-                    <div key={s.subject_id} className={cn(idx > 0 && 'mt-3')}>
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1 mr-3">
-                          <p className="text-[14px] text-text-primary truncate">{s.subject_name}</p>
-                          <p className="text-[13px] text-text-tertiary truncate">{s.class_name}</p>
+                    <div
+                      key={s.subject_id}
+                      className={cn(
+                        'flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-fast hover:bg-background-secondary cursor-pointer',
+                        idx > 0 && 'mt-0.5',
+                      )}
+                      onClick={() => navigate(`/subjects/${s.subject_id}`)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
+                        <span className={cn(
+                          'w-2 h-2 rounded-full flex-shrink-0',
+                          s.status === 'completed' ? 'bg-status-completed' :
+                          s.status === 'pending' ? 'bg-status-pending' :
+                          s.status === 'processing' ? 'bg-status-processing' :
+                          s.status === 'rejected' ? 'bg-status-rejected' :
+                          'bg-text-tertiary'
+                        )} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-text-primary truncate">{s.subject_name}</p>
+                          <p className="text-xs text-text-tertiary truncate mt-0.5">{s.class_name}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {s.released && s.status === 'completed' && (
-                            <span className="text-[10px] font-semibold text-status-completed bg-status-completed-bg rounded-full px-2 py-0.5">
-                              Download
-                            </span>
-                          )}
-                          <span className={cn(
-                            'rounded-full text-[11px] font-medium px-2 py-0.5',
-                            getStatusStyle(s.status),
-                          )}>
-                            {statusConfig[s.status]?.label || s.status}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {s.released && s.status === 'completed' && (
+                          <span className="text-[10px] font-semibold text-status-completed bg-status-completed-bg rounded-full px-2 py-0.5">
+                            Download
                           </span>
-                        </div>
+                        )}
+                        <span className={cn(
+                          'rounded-full text-[11px] font-medium px-2.5 py-0.5',
+                          getStatusStyle(s.status),
+                        )}>
+                          {statusConfig[s.status]?.label || s.status}
+                        </span>
                       </div>
                     </div>
                   ))}
                   {subjects.length > 5 && (
                     <button
                       onClick={() => navigate('/uploads')}
-                      className="text-[13px] text-accent font-medium mt-3 block hover:underline"
+                      className="text-sm text-accent font-medium mt-3 mx-3 block hover:opacity-80 transition-opacity"
                     >
                       See all {subjects.length} subjects
                     </button>
                   )}
                 </div>
               ) : (
-                <p className="text-[13px] text-text-tertiary text-center py-6">No subjects assigned yet</p>
+                <p className="text-sm text-text-tertiary text-center py-8">No subjects assigned yet</p>
               )}
             </div>
           )}
