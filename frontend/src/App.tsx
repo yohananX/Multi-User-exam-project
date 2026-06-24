@@ -21,6 +21,7 @@ const AdminClasses = lazy(() => import('./pages/admin/Classes'))
 const AdminStructureView = lazy(() => import('./pages/admin/StructureView'))
 const AdminSubjectView = lazy(() => import('./pages/admin/SubjectView'))
 const SuperAdminPage = lazy(() => import('./pages/admin/SuperAdmin'))
+const AdminReleaseManagement = lazy(() => import('./pages/admin/ReleaseManagement'))
 
 function ProtectedRoute({ children, adminOnly }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
@@ -83,6 +84,7 @@ export default function App() {
                 <Route path="structure" element={<ProtectedRoute adminOnly><AdminStructureView /></ProtectedRoute>} />
                 <Route path="subjects/:subjectId" element={<ProtectedRoute adminOnly><AdminSubjectView /></ProtectedRoute>} />
                 <Route path="super" element={<ProtectedRoute adminOnly><SuperAdminPage /></ProtectedRoute>} />
+                <Route path="releases" element={<ProtectedRoute adminOnly><AdminReleaseManagement /></ProtectedRoute>} />
                 <Route path="messages" element={<ProtectedRoute adminOnly><MessagesPage /></ProtectedRoute>} />
               </Routes>
             </Suspense>

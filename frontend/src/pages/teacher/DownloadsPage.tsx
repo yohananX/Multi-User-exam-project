@@ -4,6 +4,7 @@ import {
   Download, Loader2, CheckCircle, Clock, FolderOpen,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { downloadFile } from '@/api/client'
 import { downloadsApi } from '@/api/endpoints'
 import type { SubjectDownload } from '@/types'
 import { cn } from '@/lib/utils'
@@ -92,7 +93,8 @@ export default function DownloadsPage() {
     try {
       if (!d.imposed_pdf_path) throw new Error('No PDF path')
       const url = await downloadsApi.getPdfUrl(d.imposed_pdf_path)
-      window.open(url, '_blank')
+      const filename = `${d.class_name || 'Class'} - ${d.subject_name || 'Exam'} Exam.pdf`
+      await downloadFile(url, filename)
       await downloadsApi.markDownloaded(d.id)
       setDownloads(prev =>
         prev.map(item =>

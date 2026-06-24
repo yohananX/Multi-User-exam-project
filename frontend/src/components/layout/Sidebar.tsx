@@ -16,10 +16,11 @@ import {
   Settings,
   ChevronUp,
   Shield,
+  Send,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { dashboardApi, messagesApi, downloadsApi } from '@/api/endpoints'
+import { dashboardApi, messagesApi, downloadsApi, subjectsApi } from '@/api/endpoints'
 
 interface NavItem {
   label: string
@@ -44,6 +45,7 @@ const adminNav: NavItem[] = [
   { label: 'Teachers', icon: Users, href: '/admin/teachers' },
   { label: 'Classes', icon: GraduationCap, href: '/admin/classes' },
   { label: 'Structure', icon: FileStack, href: '/admin/structure' },
+  { label: 'Releases', icon: Send, href: '/admin/releases' },
 ]
 
 const messagesNav: NavItem[] = [
@@ -74,6 +76,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set())
   const [unreadCount, setUnreadCount] = useState(0)
   const [newDownloads, setNewDownloads] = useState(0)
+  const [pendingReleases, setPendingReleases] = useState(0)
 
   // ─── Fetch structure (admin) ───────────────────────────────────
   useEffect(() => {
@@ -101,6 +104,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     if (!isTeacher || !user?.id) return
     downloadsApi.getNewCount(user.id).then(setNewDownloads).catch(() => {})
   }, [isTeacher, user?.id, location.pathname])
+
+  // ─── Fetch pending releases count (admin) ──────────────────────
+  useEffect(() => {
+    if (isTeacher) return
+    subjectsApi.listWithImposed()
+      .then(data => {
+        const count = data.filter((s: any) => !s.released).length
+        setPendingReleases(count)
+      })
+      .catch(() => {})
+  }, [isTeacher])
 
   // ─── Helpers ───────────────────────────────────────────────────
   const toggleClass = (id: number) => {
@@ -188,6 +202,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             {item.href === '/downloads' && newDownloads > 0 && (
               <span className="text-[11px] font-semibold text-accent-foreground bg-accent rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-sm ring-1 ring-accent/30">
                 {newDownloads > 99 ? '99+' : newDownloads}
+              </span>
+            )}
+            {item.href === '/admin/releases' && pendingReleases > 0 && (
+              <span className="text-[11px] font-semibold text-white bg-amber-500/90 dark:bg-amber-400/90 dark:text-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-sm ring-1 ring-amber-500/30">
+                {pendingReleases > 99 ? '99+' : pendingReleases}
               </span>
             )}
           </Link>

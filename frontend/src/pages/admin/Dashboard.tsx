@@ -8,6 +8,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { dashboardApi, imagesApi } from '@/api/endpoints'
 import { cn } from '@/lib/utils'
+import { downloadFile } from '@/api/client'
 
 const nextStage: Record<string, string> = {
   needs_ocr: 'needs_impose',
@@ -418,7 +419,8 @@ export default function AdminDashboard() {
                                 onClick={async (e) => {
                                   e.stopPropagation()
                                   try {
-                                    await imagesApi.downloadImposed(item.id)
+                                    const { url, filename } = await imagesApi.downloadImposed(item.id)
+                                    await downloadFile(url, filename)
                                   } catch { /* handled by method */ }
                                 }}
                                 className={cn(

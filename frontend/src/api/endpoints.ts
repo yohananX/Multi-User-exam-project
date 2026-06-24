@@ -191,21 +191,12 @@ export const subjectsApi = {
       .single();
     if (fetchError) throw fetchError;
     if (!subject?.imposed_pdf_path) throw new Error('No PDF available for this subject');
-    const { data: signedData, error: signError } = await supabase
+    const { data, error } = await supabase
       .storage
-      .from('generated')
+      .from('uploads')
       .createSignedUrl(subject.imposed_pdf_path, 3600);
-    if (signError) {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .storage
-        .from('uploads')
-        .createSignedUrl(subject.imposed_pdf_path, 3600);
-      if (fallbackError) throw fallbackError;
-      if (!fallbackData?.signedUrl) throw new Error('Could not generate download URL');
-      return fallbackData.signedUrl;
-    }
-    if (!signedData?.signedUrl) throw new Error('Could not generate download URL');
-    return signedData.signedUrl;
+    if (error || !data?.signedUrl) throw new Error('Could not generate download URL');
+    return data.signedUrl;
   },
   isReleased: async (subjectIds: number[]): Promise<Record<number, boolean>> => {
     if (subjectIds.length === 0) return {};
@@ -220,6 +211,36 @@ export const subjectsApi = {
       result[s.id] = s.released && !!s.imposed_pdf_path;
     });
     return result;
+  },
+  listWithImposed: async (): Promise<any[]> => {
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('*, classes(name)')
+      .not('imposed_pdf_path', 'is', null)
+      .order('class_id, name');
+    if (error) throw error;
+    return data || [];
+  },
+  bulkRelease: async (subjectIds: number[]): Promise<void> => {
+    if (subjectIds.length === 0) return;
+    const { error } = await supabase
+      .from('subjects')
+      .update({
+        released: true,
+        released_at: new Date().toISOString(),
+      })
+      .in('id', subjectIds);
+    if (error) throw error;
+  },
+  unrelease: async (subjectId: number): Promise<void> => {
+    const { error } = await supabase
+      .from('subjects')
+      .update({
+        released: false,
+        released_at: null,
+      })
+      .eq('id', subjectId);
+    if (error) throw error;
   },
 };
 
@@ -344,12 +365,12 @@ export const imagesApi = {
     window.open(url, '_blank');
   },
 
-  downloadImposed: async (subjectId: number) => {
+  downloadImposed: async (subjectId: number): Promise<{ url: string; filename: string }> => {
     const headers = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/api/images/by-subject/${subjectId}/download-imposed`, { headers });
     if (!res.ok) throw new Error('No imposed PDF available');
-    const { url } = await res.json();
-    window.open(url, '_blank');
+    const data = await res.json();
+    return { url: data.url, filename: data.filename || 'Exam.pdf' };
   },
 };
 
@@ -762,7 +783,6 @@ export const downloadsApi = {
           id,
           name,
           imposed_pdf_path,
-          docx_path,
           term,
           exam_type,
           released,
@@ -786,7 +806,6 @@ export const downloadsApi = {
       subject_name: row.subjects?.name,
       class_name: row.subjects?.classes?.name,
       imposed_pdf_path: row.subjects?.imposed_pdf_path,
-      docx_path: row.subjects?.docx_path,
       term: row.subjects?.term,
       exam_type: row.subjects?.exam_type,
     }));
@@ -809,18 +828,10 @@ export const downloadsApi = {
   getPdfUrl: async (imposedPdfPath: string): Promise<string> => {
     const { data, error } = await supabase
       .storage
-      .from('generated')
+      .from('uploads')
       .createSignedUrl(imposedPdfPath, 3600);
-
-    if (error || !data?.signedUrl) {
-      const { data: fallback, error: fallbackError } = await supabase
-        .storage
-        .from('uploads')
-        .createSignedUrl(imposedPdfPath, 3600);
-      if (fallbackError || !fallback?.signedUrl)
-        throw new Error('Could not generate download URL');
-      return fallback.signedUrl;
-    }
+    if (error || !data?.signedUrl)
+      throw new Error('Could not generate download URL');
     return data.signedUrl;
   },
 };

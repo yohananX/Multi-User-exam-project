@@ -8,6 +8,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { subjectsApi } from '@/api/endpoints'
+import { downloadFile } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -146,7 +147,7 @@ export default function MyUploadsPage() {
     setDownloadingId(subjectId)
     try {
       const url = await subjectsApi.getImposedPdfUrl(subjectId)
-      window.open(url, '_blank')
+      await downloadFile(url, `Subject_${subjectId}_Exam.pdf`)
     } catch (err) {
       console.error('Download failed:', err)
     } finally {

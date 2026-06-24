@@ -6,6 +6,7 @@ import {
   ChevronRight, AlertCircle, Zap, Check, X, Settings2, SendHorizontal,
 } from 'lucide-react'
 import { imagesApi, subjectsApi, classesApi } from '../../api/endpoints'
+import { downloadFile } from '../../api/client'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
 
@@ -208,7 +209,8 @@ export default function AdminSubjectView() {
   const handleImposedDownload = async () => {
     if (!subjectId) return
     try {
-      await imagesApi.downloadImposed(Number(subjectId))
+      const { url, filename } = await imagesApi.downloadImposed(Number(subjectId))
+      await downloadFile(url, filename)
     } catch {
       showFeedback('error', 'Failed to download imposed PDF')
     }
